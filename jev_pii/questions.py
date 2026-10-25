@@ -42,28 +42,50 @@ REGIMES = {
 }
 
 
-def pii_questions() -> dict:
+def pii_questions(scope: str = "column") -> dict:
+    """The typed questions. scope="column" asks about a column from a sample; scope="row" asks about one record."""
+    row = scope == "row"
+    thing = "record" if row else "column"
     q = {
         "sensitive": {
             "type": "noul",
-            "instructions": "Probability that this column holds personal data that identifies or "
-                            "describes an individual person. Business or facility details, "
-                            "internal codes, amounts and statuses are not personal data.",
+            "instructions": ("Probability that this record identifies or describes an individual person. "
+                             if row else
+                             "Probability that this column holds personal data that identifies or "
+                             "describes an individual person. ") +
+                            "Business or facility details, internal codes, amounts and statuses are not personal data.",
         },
         "category": {
             "type": "choice",
-            "instructions": "Which kind of personal data does this column hold? Choose NONE if "
-                            "it is not personal data about an individual.",
+            "instructions": ("Which kind of personal data in this record is the most identifying? Choose NONE if "
+                             "the record has none." if row else
+                             "Which kind of personal data does this column hold? Choose NONE if "
+                             "it is not personal data about an individual."),
             "criteria": CATEGORIES,
         },
     }
     for key, assumption in REGIMES.items():
         q[f"regime_{key}"] = {
             "type": "noul",
-            "instructions": f"Probability that {key} obligations apply to handling this column, "
-                            f"assuming {assumption}. Zero if the column is not personal data.",
+            "instructions": f"Probability that {key} obligations apply to handling this {thing}, "
+                            f"assuming {assumption}. Zero if the {thing} is not personal data.",
         }
     return q
+
+
+def flatten_generic(answers: dict) -> dict:
+    """Any question set -> one flat object: a noul becomes a number, a choice becomes its label plus <q>_conf."""
+    out = {}
+    for name, a in answers.items():
+        if "noul" in a:
+            out[name] = float(a["noul"])
+        elif "choice" in a:
+            out[name] = a["choice"]
+            if "confidence" in a:
+                out[f"{name}_conf"] = float(a["confidence"])
+        else:
+            out[name] = a
+    return out
 
 
 def flatten(answers: dict) -> dict:

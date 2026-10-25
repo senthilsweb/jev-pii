@@ -1,20 +1,32 @@
 # jev-pii
 
-PII and compliance discovery in plain SQL. A DuckDB Python UDF, `jev_pii()`, asks
-[TypeSafe Jev](https://typesafe.ai) several **typed** questions about one column and returns a struct, so
-every answer becomes a column in a catalog table, the bronze-to-silver pattern.
+Typed answers from [TypeSafe Jev](https://typesafe.ai) inside DuckDB SQL, as extra columns. Where a prompt-style
+function returns text you then parse, Jev answers a schema: a 0 to 1 score (`noul`) or one option from a list (`choice`),
+so every answer is a column you can filter, join and count. The built-in question set finds personal data and the
+privacy regimes that apply; you can also ask your own.
 
-Where `prompt()` (MotherDuck) and `ai_parse` (Databricks) return free text, Jev returns a schema:
+## Two ways to call it
 
-| question | Jev type | catalog column |
-|---|---|---|
-| is it personal data? | `noul` (0..1) | `sensitive` |
-| which kind? | `choice` + probability per option | `category`, `category_conf`, `runner_up` |
-| does GDPR / CCPA-CPRA / HIPAA / LGPD / PIPEDA / DPDP apply? | one `noul` each | `regime_*`, `regimes` |
-| what to do about it | **not a model answer**, policy in code | `action`: keep / mask / hash / drop / review |
+**Per row: wrap your query, get the answers as extra columns.**
 
-One call per **column** (a reproducible 20-value sample), then a deeper 60-value pass on the weak ones.
-If Jev fails the answer is `NULL` and the column goes to `review`; the pipeline never stops.
+```sql
+SELECT t.*, unnest(jev_pii_row(t))
+FROM (SELECT name, dateOfBirth, specialty
+      FROM 'https://.../users.csv' LIMIT 20) t;
+-- the same 20 rows and 3 columns, plus sensitive, category, category_conf, runner_up, regime_gdpr, ...
+```
+
+One Jev call per row. The function only runs on rows that survive your `LIMIT`; a per-query cap (Settings, default 100)
+stops a missing `LIMIT` from spending your quota. Use `jev_ask(t, '<questions json>')` for your own questions:
+
+```sql
+SELECT t.*, unnest(json_transform(
+  jev_ask(t, '{"is_person":{"type":"noul","instructions":"Probability this row describes a real individual."}}'),
+  '{"is_person":"DOUBLE"}'))
+FROM (SELECT name, dateOfBirth FROM 'https://.../users.csv' LIMIT 10) t;
+```
+
+**Per column: profile a column from a sample (a catalog).**
 
 ```sql
 -- one column, as a one-row table with a column per answer
@@ -25,6 +37,16 @@ SELECT * FROM jev_pii_table('users', 'contactInfo',
 SELECT table_name, column_name, r.*
 FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_samples);
 ```
+
+The column form is one call per **column** (a reproducible 20-value sample), then a deeper 60-value pass on the weak
+ones, and feeds a policy (keep / mask / hash / drop / review) that is plain code, not a model answer. If Jev fails the
+answer is `NULL` and the column goes to `review`; the pipeline never stops.
+
+| question | Jev type | answer column |
+|---|---|---|
+| is it personal data? | `noul` (0..1) | `sensitive` |
+| which kind? | `choice` + probability per option | `category`, `category_conf`, `runner_up` |
+| does GDPR / CCPA-CPRA / HIPAA / LGPD / PIPEDA / DPDP apply? | one `noul` each | `regime_*` |
 
 ## Try it in the browser
 

@@ -206,3 +206,104 @@ def test_table_macro_returns_a_rowset_with_a_column_per_answer():
     register(con, MockJev())
     assert con.execute("SELECT count(*) FROM jev_pii_table('t', 'x', ['1'])").fetchall() == [(1,)]
     con.close()
+
+
+class Counting(MockJev):
+    def __init__(self):
+        self.seen = []
+
+    def ask(self, state, questions):
+        self.seen.append((state, questions))
+        return super().ask(state, questions)
+
+
+def people_con(client, **kw):
+    con = duckdb.connect()
+    con.execute("CREATE TABLE people AS SELECT * FROM (VALUES ('Ann Lee','1965-02-10','Cardiology'),"
+                "('Bo Ray','1990-01-01','Oncology'),('Cy Fox','1980-05-05','Radiology')) t(name, dateOfBirth, specialty)")
+    return con, register(con, client, **kw)
+
+
+def test_row_function_keeps_the_original_columns_and_adds_one_per_answer():
+    c = Counting()
+    con, _ = people_con(c)
+    cur = con.execute("SELECT t.*, unnest(jev_pii_row(t)) FROM "
+                      "(SELECT name, dateOfBirth, specialty FROM people LIMIT 2) t")
+    cols, rows = [d[0] for d in cur.description], cur.fetchall()
+    assert cols[:3] == ["name", "dateOfBirth", "specialty"] and "sensitive" in cols and "category" in cols
+    assert len(rows) == 2 and len(cols) == 3 + 11
+    assert len(c.seen) == 2                                     # 2 rows, 11 output columns: still only 2 calls
+    assert c.seen[0][0] == {"record": {"name": "Ann Lee", "dateOfBirth": "1965-02-10", "specialty": "Cardiology"}}
+    assert "record" in c.seen[0][1]["sensitive"]["instructions"]
+    con.close()
+
+
+def test_row_function_only_sends_the_selected_columns():
+    c = Counting()
+    con, _ = people_con(c)
+    con.execute("SELECT unnest(jev_pii_row(t)) FROM (SELECT name FROM people LIMIT 1) t").fetchall()
+    assert list(c.seen[0][0]["record"]) == ["name"]
+    con.close()
+
+
+def test_row_calls_are_capped_per_query_and_reset():
+    c = Counting()
+    con, budget = people_con(c, max_calls=2)
+    q = "SELECT unnest(jev_pii_row(t)) FROM (SELECT * FROM people) t"
+    with pytest.raises(Exception, match="Stopped after 2 Jev calls"):
+        con.execute(q).fetchall()
+    budget.reset()
+    assert len(con.execute(q.replace("(SELECT * FROM people)", "(SELECT * FROM people LIMIT 2)")).fetchall()) == 2
+    con.close()
+
+
+def test_row_function_redact_sends_shapes_not_values():
+    c = Counting()
+    con, _ = people_con(c, redact=True)
+    con.execute("SELECT unnest(jev_pii_row(t)) FROM (SELECT name, dateOfBirth FROM people LIMIT 1) t").fetchall()
+    state = c.seen[0][0]
+    assert "record" not in state and state["record_shapes"] == {"name": "Aaa Aaa", "dateOfBirth": "9999-99-99"}
+    con.close()
+
+
+def test_row_function_fails_open_to_nulls():
+    class Down:
+        def ask(self, *a): raise JevError("down")
+    con, _ = people_con(Down())
+    rows = con.execute("SELECT t.name, r.sensitive FROM (SELECT name, jev_pii_row(people) AS r FROM people LIMIT 2) t "
+                       "JOIN (SELECT name, jev_pii_row(people) AS r FROM people LIMIT 2) u USING (name) , "
+                       "LATERAL (SELECT u.r AS r) r").fetchall() if False else \
+        con.execute("SELECT unnest(jev_pii_row(t)) FROM (SELECT name FROM people LIMIT 2) t").fetchall()
+    assert all(all(v is None for v in row) for row in rows) and len(rows) == 2
+    con.close()
+
+
+def test_generic_ask_with_your_own_questions_expands_to_typed_columns():
+    seen = []
+
+    class Fake:
+        def ask(self, state, questions):
+            seen.append(questions)
+            return {"is_personal": {"type": "noul", "noul": 0.97},
+                    "kind": {"type": "choice", "choice": "NAME", "confidence": 0.88, "probabilities": {}}}
+    con, _ = people_con(Fake())
+    qs = ('{"is_personal":{"type":"noul","instructions":"Is this a person?"},'
+          '"kind":{"type":"choice","instructions":"Which kind?","criteria":{"NAME":"a name","NONE":"none"}}}')
+    cur = con.execute(f"SELECT t.name, unnest(json_transform(jev_ask(t, '{qs}'), "
+                      "'{\"is_personal\":\"DOUBLE\",\"kind\":\"VARCHAR\",\"kind_conf\":\"DOUBLE\"}')) "
+                      "FROM (SELECT name FROM people LIMIT 1) t")
+    cols, rows = [d[0] for d in cur.description], cur.fetchall()
+    assert cols == ["name", "is_personal", "kind", "kind_conf"] and rows == [("Ann Lee", 0.97, "NAME", 0.88)]
+    assert seen[0]["is_personal"]["instructions"] == "Is this a person?"
+    con.close()
+
+
+def test_the_same_row_twice_costs_one_call():
+    c = Counting()
+    con, _ = people_con(c)
+    con.execute("CREATE TABLE dup AS SELECT * FROM (VALUES ('Ann','x'),('Ann','x'),('Ann','x')) t(a, b)")
+    live = JevClient("k", cache_dir=None, opener=opener_from([reply()]))      # only ONE canned reply: a second call would raise
+    register(con, live)
+    con.execute("SELECT unnest(jev_pii_row(t)) FROM (SELECT * FROM dup) t").fetchall()
+    assert live.calls == 1                                      # one call, however many times DuckDB evaluates the row
+    con.close()

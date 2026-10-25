@@ -136,8 +136,9 @@
     <div id="tree"><div class="empty">starting Python + DuckDB…</div></div>
     <div id="fns">
       <div class="head"><span>AI functions</span></div>
-      <button data-snip="SELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);"><span class="mono sig">jev_pii_table(table, column, samples)</span><span class="d">a one-row table: a column per answer</span></button>
-      <button data-snip="SELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;"><span class="mono sig">jev_pii(table, column, samples)</span><span class="d">the same answers as one struct value, for use inside a query</span></button>
+      <button data-snip="SELECT t.*, unnest(jev_pii_row(t))&#10;FROM (SELECT * FROM users LIMIT 20) t;"><span class="mono sig">jev_pii_row(t)</span><span class="d">per row: adds a column per Jev answer</span></button>
+      <button data-snip="SELECT t.*, unnest(json_transform(jev_ask(t, '{&quot;q&quot;:{&quot;type&quot;:&quot;noul&quot;,&quot;instructions&quot;:&quot;Probability that this row describes a person.&quot;}}'), '{&quot;q&quot;:&quot;DOUBLE&quot;}'))&#10;FROM (SELECT * FROM users LIMIT 5) t;"><span class="mono sig">jev_ask(t, questions)</span><span class="d">per row: your own questions, JSON out</span></button>
+      <button data-snip="SELECT * FROM jev_pii_table('users', 'contactInfo', (SELECT list(DISTINCT CAST(contactInfo AS VARCHAR))[:20] FROM users));"><span class="mono sig">jev_pii_table(table, column, samples)</span><span class="d">per column: a one-row table from a sample</span></button>
       <button data-snip="SELECT policy_action('PERSON_NAME', 0.9) AS action;"><span class="mono sig">policy_action(category, sensitive)</span><span class="d">keep / mask / hash / drop / review</span></button>
     </div>
   </aside>
@@ -207,6 +208,9 @@
     <h3>Discovery</h3>
     <label for="setN">Sample values per column</label>
     <input id="setN" type="number" min="5" max="100" value="20">
+    <label for="setMax">Max Jev calls per query</label>
+    <input id="setMax" type="number" min="1" max="2000" value="100">
+    <p class="hint">Row-level functions make one call per row. This stops a query with no LIMIT from spending your quota.</p>
     <label class="chk"><input type="checkbox" id="setRedact"> <span>Send value shapes only, not values<br><span class="mute">Digits become 9, letters become a or A, so <code>(257)667-2991</code> is sent as <code>(999)999-9999</code>.</span></span></label>
     <div class="out" id="setOut">Not tested yet.</div>
     <div class="row end">
@@ -244,8 +248,9 @@ const EXAMPLES = {
   'Query a remote CSV': `SELECT * FROM '${CW}users.csv' LIMIT 20;`,
   'Query a remote Parquet': `SELECT company_name, count(*) AS openings\nFROM '${JOBS}'\nGROUP BY 1 ORDER BY 2 DESC LIMIT 10;`,
   'Query a Hugging Face dataset': `SELECT column_name, output AS pii_label\nFROM 'hf://datasets/trl-lab/contextual-sensitive-data/train_data_personal.csv'\nLIMIT 20;`,
-  'Ask Jev about one column': `-- a one-row table, one column per answer\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
-  'Ask Jev about a column of your data': `-- needs a table named users (add one with +): samples come from the data itself\nSELECT * FROM jev_pii_table('users', 'contactInfo',\n  (SELECT list(DISTINCT CAST(contactInfo AS VARCHAR))[:20] FROM users));`,
+  'Add Jev answers to your rows': `-- your query, wrapped: the same rows and columns, plus one column per Jev answer\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${CW}users.csv' LIMIT 20) t;`,
+  'Ask your own questions': `-- you choose the questions; json_transform names the answer columns\nSELECT t.*, unnest(json_transform(\n  jev_ask(t, '{"is_person":{"type":"noul","instructions":"Probability that this row describes a real individual."},"kind":{"type":"choice","instructions":"Which kind of record is this?","criteria":{"CLINICIAN":"a doctor or other clinician","PATIENT":"a patient","NONE":"not a person"}}}'),\n  '{"is_person":"DOUBLE","kind":"VARCHAR","kind_conf":"DOUBLE"}'))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${CW}users.csv' LIMIT 10) t;`,
+  'Profile one column (catalog)': `-- one column, judged from a sample of its values: a one-row table\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
   'Read the PII catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
   'Columns that need action': `SELECT table_name, column_name, category, action, regimes\nFROM pii_catalog WHERE action <> 'keep' ORDER BY table_name, ordinal;`,
 };
@@ -438,19 +443,19 @@ $('addFile').onchange = async (e) => {
 };
 
 // ---- settings ---------------------------------------------------------------------
-const settings = { mode: 'mock', url: DEFAULT_ENDPOINT, model: '', n: 20, redact: false, key: '', secret: '' };
+const settings = { mode: 'mock', url: DEFAULT_ENDPOINT, model: '', n: 20, maxCalls: 100, redact: false, key: '', secret: '' };
 try { Object.assign(settings, JSON.parse(store.get('jev.settings') || '{}'), JSON.parse(store.get('jev.cred') || '{}')); } catch {}
 const epParam = new URLSearchParams(location.search).get('endpoint');
 if (epParam && /^https?:\/\//.test(epParam)) settings.url = epParam;
 function loadForm() {
   document.querySelector(`input[name=mode][value=${settings.mode}]`).checked = true;
   $('setUrl').value = settings.url; $('setModel').value = settings.model; $('setKey').value = settings.key; $('setSecret').value = settings.secret;
-  $('setN').value = settings.n; $('setRedact').checked = settings.redact; $('setRemember').checked = !!store.get('jev.cred');
+  $('setN').value = settings.n; $('setMax').value = settings.maxCalls; $('setRedact').checked = settings.redact; $('setRemember').checked = !!store.get('jev.cred');
 }
 function readForm() {
   Object.assign(settings, { mode: document.querySelector('input[name=mode]:checked').value, url: $('setUrl').value.trim() || DEFAULT_ENDPOINT,
     model: $('setModel').value.trim(), key: $('setKey').value.trim(), secret: $('setSecret').value.trim(),
-    n: Math.max(5, Math.min(100, parseInt($('setN').value, 10) || 20)), redact: $('setRedact').checked });
+    n: Math.max(5, Math.min(100, parseInt($('setN').value, 10) || 20)), maxCalls: Math.max(1, Math.min(2000, parseInt($('setMax').value, 10) || 100)), redact: $('setRedact').checked });
 }
 async function applySettings() {
   const r = JSON.parse(await send('set_client', settings));

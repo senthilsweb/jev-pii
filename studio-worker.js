@@ -15,17 +15,18 @@ con = duckdb.connect()
 _c = {}
 INTERNAL = ('column_samples', 'column_catalog')   # scratch tables the discover step uses; hidden from the tree
 
-def set_client(mode, key, url, secret, model, redact):
+def set_client(mode, key, url, secret, model, redact, max_calls=0):
     kw = {'api_url': url, 'proxy_secret': secret or None, 'cache_dir': None, 'timeout': 60}
     if model:
         kw['model'] = model
     c = MockJev() if mode == 'mock' else JevClient(key or None, **kw)
-    register(con, c, redact=bool(redact))
+    _c['budget'] = register(con, c, redact=bool(redact), max_calls=int(max_calls) or None)
     _c['c'] = c
     return json.dumps({'client': c.name, 'model': getattr(c, 'model', '')})
 
 def run_sql(sql):
     t = time.time()
+    _c['budget'].reset()          # the row-level call cap applies per query
     try:
         cur = con.execute(sql)
         if cur.description is None:
@@ -82,14 +83,14 @@ async function init() {
     py.FS.writeFile(`jev_pii/${f}.py`, await r.text());
   }
   await py.runPythonAsync(BOOT);
-  py.globals.get('set_client')('mock', '', '', '', '', false);
+  py.globals.get('set_client')('mock', '', '', '', '', false, 100);
 }
 
 const call = (name, ...args) => py.globals.get(name)(...args);
 
 const handlers = {
   init: async () => { await init(); return 'ready'; },
-  set_client: (a) => call('set_client', a.mode, a.key || '', a.url || '', a.secret || '', a.model || '', !!a.redact),
+  set_client: (a) => call('set_client', a.mode, a.key || '', a.url || '', a.secret || '', a.model || '', !!a.redact, a.maxCalls || 0),
   write_file: (a) => { py.FS.writeFile(a.path, a.bytes); return 'ok'; },
   run_sql: (a) => call('run_sql', a.sql),
   tree: () => call('tree'),

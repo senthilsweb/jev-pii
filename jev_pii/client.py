@@ -34,6 +34,7 @@ class JevClient:
         self._open, self._sleep = opener, sleep
         self._lock = threading.Lock()
         self._errors = 0
+        self._mem = {}                   # same request twice in a session costs one call, even with no disk cache
         self.calls = self.cache_hits = self.input_tokens = self.output_tokens = 0
         self._dir = Path(cache_dir) / "jev" if cache_dir else None
         if self._dir:
@@ -46,6 +47,11 @@ class JevClient:
         """Returns the `answers` object, or raises JevError (callers decide the fallback)."""
         body = json.dumps({"model": self.model, "state": state, "questions": questions},
                           sort_keys=True).encode()
+        mem_key = hashlib.sha256(body).hexdigest()
+        if mem_key in self._mem:
+            with self._lock:
+                self.cache_hits += 1
+            return self._mem[mem_key]
         path = self._cache_path(body)
         if path and path.exists():
             with self._lock:
@@ -82,6 +88,8 @@ class JevClient:
             self.output_tokens += usage.get("output_tokens", 0)
         if path:
             path.write_text(json.dumps({"answers": answers}))
+        if len(self._mem) < 5000:
+            self._mem[mem_key] = answers
         return answers
 
     def _fail(self, why):
@@ -103,17 +111,25 @@ class MockJev:
     ]
 
     def ask(self, state: dict, questions: dict) -> dict:
-        col = state.get("column", "").lower()
+        col = state.get("column", "").lower() or " ".join(str(k).lower() for k in state.get("record", {}))
         hit = next((k for k, rx in self._HINTS if re.search(rx, col)), "NONE")
         pii = hit != "NONE"
-        probs = {k: 0.0 for k in questions["category"]["criteria"]}
-        probs[hit] = 0.9
-        probs["NONE" if pii else "OTHER_SENSITIVE"] = 0.1
-        ans = {"sensitive": {"type": "noul", "noul": 0.9 if pii else 0.1},
-               "category": {"type": "choice", "choice": hit, "confidence": 0.9, "probabilities": probs}}
-        for k in questions:
-            if k.startswith("regime_"):
-                ans[k] = {"type": "noul", "noul": 0.8 if pii else 0.05}
+        ans = {}
+        for name, q in questions.items():                      # any question set, not just the built-in one
+            if q.get("type") == "choice":
+                opts = list(q.get("criteria", {})) or ["NONE"]
+                pick = hit if name == "category" and hit in opts else opts[0]
+                probs = {k: 0.0 for k in opts}
+                probs[pick] = 0.9
+                ans[name] = {"type": "choice", "choice": pick, "confidence": 0.9, "probabilities": probs}
+            else:
+                known = name == "sensitive" or name.startswith("regime_")
+                ans[name] = {"type": "noul", "noul": (0.9 if pii else 0.1) if known else 0.5}
+        cat = ans.get("category")
+        if cat:                                                # give the pick a runner-up, as a real answer has
+            other = "NONE" if pii else "OTHER_SENSITIVE"
+            if other in cat["probabilities"] and other != cat["choice"]:
+                cat["probabilities"][other] = 0.1
         return ans
 
 
