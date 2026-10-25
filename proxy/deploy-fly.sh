@@ -52,7 +52,7 @@ sed -i.bak -E "s/^app = .*/app = \"$APP\"/" fly.toml && rm -f fly.toml.bak
 if [ -n "$KEY" ]; then
   {
     printf 'TYPESAFE_API_KEY=%s\nPROXY_SECRET=%s\n' "$KEY" "$SECRET"
-    [ "$OPEN" = "1" ] && printf 'OPEN_SERVER_KEY=1\n'
+    [ -n "$OPEN" ] && printf 'OPEN_SERVER_KEY=%s\n' "$OPEN"        # send 0 as well: it must be able to switch the mode OFF
     [ -n "$OPEN_RATE" ] && printf 'OPEN_RATE_PER_MIN=%s\n' "$OPEN_RATE"
     [ -n "$OPEN_DAILY" ] && printf 'OPEN_DAILY_MAX=%s\n' "$OPEN_DAILY"
   } | fly secrets import --app "$APP" --stage
