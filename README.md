@@ -53,7 +53,7 @@ echo 'TYPESAFE_API_KEY=...' > .env        # git-ignored; without it a keyword mo
 40 columns scored, 10 `ambiguous` excluded. Precision 0.86, recall 0.86, category accuracy 0.86.
 `users.contactInfo` (a person's phone) was kept sensitive while `facilities.contactInfo` (a business
 line) was not. One false positive (`facilities.location`) and one miss (`activities.procedureCode`).
-On the job-scout control, 16 of 18 columns stayed `keep`; `employment_type` was flagged by mistake.
+On the job-scout control, 17 of 18 columns scored below 0.5; `employment_type` (0.60) was flagged by mistake, and `location` (0.46) and `work_mode` (0.35) sat in the grey zone.
 
 **Read these as a sketch, not a benchmark.** There are only 7 labelled PII columns, the labels are mine,
 and the deep-dive pass did not change a single verdict on this data.
