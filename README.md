@@ -59,7 +59,10 @@ and the same Python `jev_pii()` function in WebAssembly (Pyodide, in a Web Worke
   from memory. Nothing is uploaded.
 - **Discover PII**: the scan icon next to a table profiles every column (a sample of values, one Jev call per column)
   into `pii_catalog`; the mask icon creates `silver_<table>` with the policy applied.
-- **Settings**: mock or live, endpoint, model, your TypeSafe key and/or proxy secret, sample size, shapes-only mode,
+- **On open**, the editor holds a query that asks Jev four questions about each row of a clinician list and returns the
+  answers as aliased `jev_*` columns (it runs with the mock client, so it never spends calls unasked).
+- **Help** (the `?` icon): every function with a one-line explanation and code you can copy or put in the editor.
+- **Settings** (the gear icon, a sheet that slides down): mock or live, endpoint, model, your TypeSafe key and/or proxy secret, sample size, shapes-only mode,
   and an opt-in "remember on this device". The Jev API does not allow browser origins yet, so live mode needs a
   [`proxy/`](proxy/) endpoint (`ghcr.io/senthilsweb/jev-proxy`); `?endpoint=` overrides the default.
 

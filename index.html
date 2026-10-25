@@ -71,7 +71,7 @@
   .bar select { padding:5px 8px; border:1px solid var(--line); background:var(--panel); color:var(--fg); border-radius:6px; max-width:100%; }
   .bar .meta { margin-left:auto; color:var(--mute); font-size:12.5px; }
   #prog { height:2px; background:transparent; } #prog i { display:block; height:100%; width:0; background:var(--accent); transition:width .15s; }
-  #edwrap { flex:0 0 var(--edh, 200px); min-height:70px; max-height:75%; position:relative; background:var(--panel); }
+  #edwrap { flex:0 0 var(--edh, 270px); min-height:70px; max-height:75%; position:relative; background:var(--panel); }
   #edwrap .CodeMirror { height:100%; background:var(--panel); color:var(--fg); font:13px/1.55 ui-monospace, Menlo, monospace; }
   .CodeMirror-gutters { background:var(--side); border-right:1px solid var(--line); }
   .CodeMirror-linenumber { color:var(--mute); }
@@ -94,19 +94,45 @@
 
   dialog { border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--fg); padding:0; width:min(560px, calc(100vw - 24px)); box-shadow:0 12px 40px rgba(0,0,0,.28); }
   dialog::backdrop { background:rgba(0,0,0,.35); }
-  dialog form, dialog .body { padding:16px 18px 14px; }
-  dialog h2 { font-size:16px; margin:0 0 2px; display:flex; align-items:center; gap:8px; }
-  dialog .lead { color:var(--mute); margin:0 0 8px; font-size:13px; }
-  dialog h3 { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--mute); margin:16px 0 4px; }
-  dialog label { display:block; margin:9px 0 3px; color:var(--mute); font-size:12.5px; }
-  dialog input[type=text], dialog input[type=password], dialog input[type=number] { width:100%; padding:7px 8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:6px; }
-  dialog .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
-  dialog .row.end { justify-content:flex-end; margin-top:14px; }
-  dialog label.chk { display:flex; gap:8px; align-items:flex-start; color:var(--fg); margin:7px 0; }
-  dialog .hint { color:var(--mute); font-size:12px; margin:2px 0 0; }
-  dialog .out { background:var(--code); padding:8px 10px; border-radius:6px; white-space:pre-wrap; margin:8px 0 0; font-size:12.5px; min-height:2.2em; }
+  dialog form, dialog .body, .sheet form, .sheet .body { padding:16px 18px 14px; }
+  dialog h2, .sheet h2 { font-size:16px; margin:0 0 2px; display:flex; align-items:center; gap:8px; }
+  dialog .lead, .sheet .lead { color:var(--mute); margin:0 0 8px; font-size:13px; }
+  dialog h3, .sheet h3 { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--mute); margin:16px 0 4px; }
+  dialog label, .sheet label { display:block; margin:9px 0 3px; color:var(--mute); font-size:12.5px; }
+  dialog input[type=text], dialog input[type=password], dialog input[type=number], .sheet input[type=text], .sheet input[type=password], .sheet input[type=number] { width:100%; padding:7px 8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:6px; }
+  dialog .row, .sheet .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  dialog .row.end, .sheet .row.end { justify-content:flex-end; margin-top:14px; }
+  dialog label.chk, .sheet label.chk { display:flex; gap:8px; align-items:flex-start; color:var(--fg); margin:7px 0; }
+  dialog .hint, .sheet .hint { color:var(--mute); font-size:12px; margin:2px 0 0; }
+  dialog .out, .sheet .out { background:var(--code); padding:8px 10px; border-radius:6px; white-space:pre-wrap; margin:8px 0 0; font-size:12.5px; min-height:2.2em; }
   .chips { display:flex; flex-wrap:wrap; gap:6px; } .chips .btn { padding:4px 9px; font-size:12.5px; }
   .ok { color:var(--accent); } .bad { color:var(--bad); } .mute { color:var(--mute); }
+
+  .btn.sq iconify-icon { font-size:17px; }
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.36); opacity:0; pointer-events:none; transition:opacity .18s; z-index:40; }
+  .scrim.on { opacity:1; pointer-events:auto; }
+  .sheet { position:fixed; top:0; left:50%; width:min(780px, 100vw); max-height:90vh; display:flex; flex-direction:column; background:var(--panel); color:var(--fg);
+    border:1px solid var(--line); border-top:0; border-radius:0 0 16px 16px; box-shadow:0 20px 56px rgba(0,0,0,.34); z-index:41;
+    transform:translate(-50%, -104%); visibility:hidden; transition:transform .24s cubic-bezier(.2,.8,.2,1), visibility 0s linear .24s; }
+  .sheet.open { transform:translate(-50%, 0); visibility:visible; transition:transform .24s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+  .sheet-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px 6px; }
+  .sheet-head h2 { margin:0; font-size:17px; display:flex; align-items:center; gap:8px; }
+  .sheet-body { flex:1 1 auto; overflow:auto; padding:2px 18px 16px; }
+  .sheet-foot { flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:11px 18px; border-top:1px solid var(--line); background:var(--panel); border-radius:0 0 16px 16px; }
+  .sheet-foot .msg { flex:1; min-width:0; font-size:12.5px; color:var(--mute); line-height:1.4; max-height:2.8em; overflow:auto; }
+  .sheet-foot .actions { margin-left:auto; display:flex; gap:8px; flex:0 0 auto; }
+  .fn { border-top:1px solid var(--line); padding:12px 0 4px; }
+  .fn:first-child { border-top:0; padding-top:4px; }
+  .fn-h { font-family:ui-monospace, Menlo, monospace; font-size:13.5px; font-weight:600; color:var(--accent); }
+  .fn p { margin:3px 0 8px; color:var(--mute); font-size:13px; }
+  .codebox { position:relative; }
+  .codebox pre { margin:0; background:var(--code); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:12.2px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+  .codebox .cb { display:flex; justify-content:flex-end; gap:4px; margin-bottom:5px; }
+  .codebox .cb .btn { padding:3px 9px; font-size:12px; background:var(--panel); }
+  #mockNote { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:5px 12px; background:var(--sel); border-bottom:1px solid var(--line); font-size:12.5px; color:var(--fg); }
+  #mockNote[hidden] { display:none; }
+  #mockNote .btn { padding:2px 9px; font-size:12px; margin-left:auto; }
+  @media (prefers-reduced-motion:reduce) { .sheet, .sheet.open, .scrim { transition:none; } }
 
   @media (max-width:760px) {
     #toggleSide { display:inline-flex; }
@@ -122,7 +148,8 @@
   <span class="sub">DuckDB + Python in your browser · typed PII and compliance answers from TypeSafe Jev</span>
   <div class="right">
     <span class="pill" id="modePill"><iconify-icon icon="lucide:loader-circle"></iconify-icon> starting…</span>
-    <button class="btn" id="openSettings"><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</button>
+    <button class="btn sq" id="openHelp" aria-label="Help: what each function does" title="Help"><iconify-icon icon="lucide:circle-help"></iconify-icon></button>
+    <button class="btn sq" id="openSettings" aria-label="Settings" title="Settings"><iconify-icon icon="lucide:settings-2"></iconify-icon></button>
   </div>
 </header>
 
@@ -151,6 +178,7 @@
       <button class="btn sq" id="copyCsv" title="Copy results as CSV"><iconify-icon icon="lucide:copy"></iconify-icon></button>
       <span class="meta" id="meta"></span>
     </div>
+    <div id="mockNote" hidden><iconify-icon icon="lucide:flask-conical"></iconify-icon><span>Mock client: the jev_ answers below are placeholders, not a model. Use Live Jev for real answers.</span><button class="btn" id="goLive">Use live Jev</button></div>
     <div id="prog"><i></i></div>
     <div id="edwrap"><textarea id="sql"></textarea></div>
     <div class="hgut" id="hgut" title="Drag to resize · double-click to reset"></div>
@@ -179,11 +207,13 @@
   </div>
 </dialog>
 
-<!-- Settings -->
-<dialog id="setDlg">
-  <div class="body">
-    <h2><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</h2>
-    <p class="lead">How the <code>jev_pii()</code> function reaches Jev.</p>
+<!-- Settings: a sheet that slides down from the top; actions live in the fixed footer -->
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="setSheet" role="dialog" aria-modal="true" aria-labelledby="setTitle" aria-hidden="true" inert>
+  <div class="sheet-head"><h2 id="setTitle"><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</h2>
+    <button class="btn sq" data-close-sheet aria-label="Close settings" title="Close"><iconify-icon icon="lucide:x"></iconify-icon></button></div>
+  <div class="sheet-body" tabindex="-1">
+    <p class="lead">How the Jev functions reach the model.</p>
     <h3>Connection</h3>
     <div class="chips" style="margin-bottom:4px">
       <label class="btn" style="margin:0"><input type="radio" name="mode" value="mock" checked> Mock</label>
@@ -212,14 +242,25 @@
     <input id="setMax" type="number" min="1" max="2000" value="100">
     <p class="hint">Row-level functions make one call per row. This stops a query with no LIMIT from spending your quota.</p>
     <label class="chk"><input type="checkbox" id="setRedact"> <span>Send value shapes only, not values<br><span class="mute">Digits become 9, letters become a or A, so <code>(257)667-2991</code> is sent as <code>(999)999-9999</code>.</span></span></label>
-    <div class="out" id="setOut">Not tested yet.</div>
-    <div class="row end">
+  </div>
+  <div class="sheet-foot">
+    <div class="msg" id="setOut">Not tested yet.</div>
+    <div class="actions">
       <button class="btn" id="setTest"><iconify-icon icon="lucide:plug-zap"></iconify-icon> Test connection</button>
       <button class="btn" id="setClose">Close</button>
       <button class="btn run" id="setSave"><iconify-icon icon="lucide:check"></iconify-icon> Apply</button>
     </div>
   </div>
-</dialog>
+</section>
+
+<!-- Help: every function, one example each, copyable -->
+<section class="sheet" id="helpSheet" role="dialog" aria-modal="true" aria-labelledby="helpTitle" aria-hidden="true" inert>
+  <div class="sheet-head"><h2 id="helpTitle"><iconify-icon icon="lucide:circle-help"></iconify-icon> Functions</h2>
+    <button class="btn sq" data-close-sheet aria-label="Close help" title="Close"><iconify-icon icon="lucide:x"></iconify-icon></button></div>
+  <div class="sheet-body" id="helpBody" tabindex="-1"></div>
+  <div class="sheet-foot"><div class="msg">Copy puts the code on your clipboard. Use puts it in the editor.</div>
+    <div class="actions"><button class="btn run" data-close-sheet>Close</button></div></div>
+</section>
 
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/sql/sql.js"></script>
@@ -245,15 +286,60 @@ const SAMPLES = [
   ['job_postings', JOBS, 'job-scout · hiring data (9,300, Parquet)'],
 ];
 const HF = 'hf://datasets/trl-lab/contextual-sensitive-data/train_data_personal.csv';
+const USERS = `${CW}users.csv`;     // a synthetic clinician list: name, dateOfBirth, contactInfo, specialty
+// The default query: four custom questions asked about every row, answers as aliased jev_* columns.
+const DEFAULT_SQL = `-- Ask Jev four questions about each row. The answers come back as new jev_* columns.
+WITH src AS (                     -- 1. YOUR DATA: four columns of a clinician list (Claimwise, synthetic)
+  SELECT name, dateOfBirth, contactInfo, specialty
+  FROM '${USERS}'
+  LIMIT 10
+),
+asked AS (                        -- 2. ASK: one call per row, four questions in each call
+  SELECT *, json_transform(
+    jev_ask(src, '{
+      "is_person": {"type": "noul",   "instructions": "Probability that this row describes a real, identifiable person."},
+      "pii_kind":  {"type": "choice", "instructions": "Which value in this row identifies the person most directly?",
+                    "criteria": {"NAME": "the name", "DATE_OF_BIRTH": "the date of birth", "CONTACT": "the phone number or email", "NONE": "nothing here identifies a person"}},
+      "gdpr":      {"type": "noul",   "instructions": "Probability that GDPR applies to storing this row, if the person may live in the EU."},
+      "hipaa":     {"type": "noul",   "instructions": "Probability that HIPAA applies to storing this row, if a US healthcare provider holds it."}
+    }'),
+    '{"is_person":"DOUBLE","pii_kind":"VARCHAR","pii_kind_conf":"DOUBLE","gdpr":"DOUBLE","hipaa":"DOUBLE"}'
+  ) AS a
+  FROM src
+)
+SELECT name, dateOfBirth, contactInfo, specialty,      -- 3. THE RESULT: your 4 columns, then Jev's answers
+       a.is_person     AS jev_is_person,       -- 0 to 1: is this a real person?
+       a.pii_kind      AS jev_pii_kind,        -- which value identifies them most
+       a.pii_kind_conf AS jev_pii_kind_conf,   -- how sure of that pick
+       a.gdpr          AS jev_gdpr,            -- 0 to 1: does GDPR apply?
+       a.hipaa         AS jev_hipaa            -- 0 to 1: does HIPAA apply?
+FROM asked;`;
 const EXAMPLES = {
-  '1 · Raw: the Hugging Face file': `-- The raw file. 5 columns: column_name, records (sample values of some other column), output (the\n-- dataset's own label, None = not PII), and instruction and input (training prompt text, ignored here).\nSELECT column_name, records, output AS source_label\nFROM '${HF}'\nLIMIT 10;`,
-  '2 · Raw to silver: Jev answers as jev_* columns': `-- RAW to SILVER. The original columns stay as they are; every Jev answer is a NEW column prefixed jev_.\nCREATE OR REPLACE TABLE silver_pii_check AS\nWITH raw AS (                       -- 1. RAW: 3 of the file's 5 columns, untouched\n  SELECT column_name, records, output AS source_label\n  FROM '${HF}'\n  LIMIT 10\n),\nasked AS (                          -- 2. ASK: send one column (records, with column_name as context) to Jev\n  SELECT *, jev_pii_row({'column_name': column_name, 'sample_values': records}) AS jev\n  FROM raw\n),\ndecided AS (                        -- 3. DECIDE: the answers become aliased columns, plus the rule's action\n  SELECT column_name, records, source_label,\n         jev.sensitive      AS jev_sensitive,       -- 0 to 1: does it hold personal data?\n         jev.category       AS jev_category,        -- which kind, from a fixed list\n         jev.category_conf  AS jev_category_conf,   -- how sure of that pick\n         jev.regime_gdpr    AS jev_gdpr,            -- 0 to 1: does GDPR apply?\n         jev.regime_hipaa   AS jev_hipaa,           -- 0 to 1: does HIPAA apply?\n         policy_action(jev.category, jev.sensitive) AS jev_action   -- keep, mask, hash, drop or review (see example 3)\n  FROM asked\n)\nSELECT *,                           -- 4. SILVER: apply the action to the value\n       CASE jev_action WHEN 'keep' THEN records\n                       WHEN 'hash' THEN md5(records)\n                       WHEN 'mask' THEN '***'\n                       ELSE NULL    -- drop or review: the value is not loaded\n       END AS records_silver\nFROM decided;\n\nSELECT * FROM silver_pii_check;`,
-  '3 · The rule behind jev_action': `-- policy_action(category, score) is NOT an AI answer. It is a fixed rule in code:\n--   score below 0.5 and category NONE            -> keep\n--   a confident category, by the table below      -> mask, hash or drop\n--   the score and the category disagree, or Jev failed -> review (a person decides)\n-- This table shows the "by the table below" part. It is a read-only copy: to use a different rule, join your own table.\nSELECT action, string_agg(category, ', ' ORDER BY category) AS categories\nFROM jev_policy GROUP BY action ORDER BY action;`,
-  '4 · Wrap any query (Claimwise users)': `-- your query, wrapped: the same rows and columns, plus one column per Jev answer\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${CW}users.csv' LIMIT 20) t;`,
-  '5 · Ask your own questions': `-- you choose the questions; json_transform names the answer columns\nSELECT t.*, unnest(json_transform(\n  jev_ask(t, '{"is_person":{"type":"noul","instructions":"Probability that this row describes a real individual."},"kind":{"type":"choice","instructions":"Which kind of record is this?","criteria":{"CLINICIAN":"a doctor or other clinician","PATIENT":"a patient","NONE":"not a person"}}}'),\n  '{"is_person":"DOUBLE","kind":"VARCHAR","kind_conf":"DOUBLE"}'))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${CW}users.csv' LIMIT 10) t;`,
+  '1 · Several questions per row (default)': DEFAULT_SQL,
+  '2 · The built-in PII questions: jev_pii_row': `-- the built-in question set (personal data, category, six regimes) as 11 extra columns\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${USERS}' LIMIT 10) t;`,
+  '3 · Raw to silver on a Hugging Face file': `-- RAW to SILVER. The original columns stay as they are; every Jev answer is a NEW column prefixed jev_.\nCREATE OR REPLACE TABLE silver_pii_check AS\nWITH raw AS (                       -- 1. RAW: 3 of the file's 5 columns, untouched\n  SELECT column_name, records, output AS source_label\n  FROM '${HF}'\n  LIMIT 10\n),\nasked AS (                          -- 2. ASK: send one column (records, with column_name as context) to Jev\n  SELECT *, jev_pii_row({'column_name': column_name, 'sample_values': records}) AS jev\n  FROM raw\n),\ndecided AS (                        -- 3. DECIDE: the answers become aliased columns, plus the rule's action\n  SELECT column_name, records, source_label,\n         jev.sensitive      AS jev_sensitive,       -- 0 to 1: does it hold personal data?\n         jev.category       AS jev_category,        -- which kind, from a fixed list\n         jev.category_conf  AS jev_category_conf,   -- how sure of that pick\n         jev.regime_gdpr    AS jev_gdpr,            -- 0 to 1: does GDPR apply?\n         jev.regime_hipaa   AS jev_hipaa,           -- 0 to 1: does HIPAA apply?\n         policy_action(jev.category, jev.sensitive) AS jev_action   -- keep, mask, hash, drop or review (see example 4)\n  FROM asked\n)\nSELECT *,                           -- 4. SILVER: apply the action to the value\n       CASE jev_action WHEN 'keep' THEN records\n                       WHEN 'hash' THEN md5(records)\n                       WHEN 'mask' THEN '***'\n                       ELSE NULL    -- drop or review: the value is not loaded\n       END AS records_silver\nFROM decided;\n\nSELECT * FROM silver_pii_check;`,
+  '4 · The rule behind jev_action': `-- policy_action(category, score) is NOT an AI answer. It is a fixed rule in code:\n--   score below 0.5 and category NONE            -> keep\n--   a confident category, by the table below      -> mask, hash or drop\n--   the score and the category disagree, or Jev failed -> review (a person decides)\n-- This table shows the "by the table below" part. It is a read-only copy: to use a different rule, join your own table.\nSELECT action, string_agg(category, ', ' ORDER BY category) AS categories\nFROM jev_policy GROUP BY action ORDER BY action;`,
+  '5 · Look at the raw Hugging Face file': `-- 5 columns: column_name, records (sample values of another column), output (the dataset's label, None = not PII),\n-- and instruction and input (training prompt text, ignored here).\nSELECT column_name, records, output AS source_label\nFROM '${HF}'\nLIMIT 10;`,
   '6 · Profile one column from a sample': `-- one column, judged from a sample of its values: a one-row table\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
   '7 · Catalog: read pii_catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
 };
+
+// Help: every function, one example each.
+const HELP = [
+  { fn: 'jev_pii_row(t)', what: "Adds Jev's built-in personal-data answers to every row: 11 columns (sensitive, category, category_conf, runner_up, regime_gdpr, ...).",
+    sql: `SELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 10) t;` },
+  { fn: 'jev_ask(t, questions)', what: 'Your own questions. Returns JSON; json_transform turns it into named columns. noul = a score 0 to 1. choice = one pick from criteria, plus name_conf.',
+    sql: `SELECT t.*, unnest(json_transform(\n  jev_ask(t, '{"is_adult": {"type": "noul", "instructions": "Probability that this person is an adult."}}'),\n  '{"is_adult": "DOUBLE"}'))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 5) t;` },
+  { fn: 'jev_pii_table(table, column, samples)', what: 'Judges one column from a list of its values. Returns one row.',
+    sql: `SELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);` },
+  { fn: 'jev_pii(table, column, samples)', what: 'The same answers as one struct value. r.* spreads it into columns.',
+    sql: `SELECT r.* FROM (SELECT jev_pii('users', 'contactInfo', ['321.581.9600']) AS r);` },
+  { fn: 'policy_action(category, score)', what: 'A fixed rule, not AI: keep, mask, hash, drop or review. The rule is readable in the jev_policy table.',
+    sql: `SELECT policy_action('PERSON_NAME', 0.9) AS action;   -- mask\nSELECT * FROM jev_policy ORDER BY action;` },
+  { fn: "'https://...'  or  'hf://...'", what: 'Query a CSV, Parquet or JSON URL, or a Hugging Face file, directly. Your browser fetches it. Nothing is uploaded.',
+    sql: `SELECT * FROM '${HF}' LIMIT 5;` },
+  { fn: 'Sidebar icons', what: 'Scan icon: ask Jev about every column of a table, into pii_catalog. Mask icon: create silver_<table> with the rule applied.', sql: null },
+];
 
 // ---- worker -----------------------------------------------------------------
 const worker = new Worker('studio-worker.js', { type: 'module' });
@@ -274,8 +360,7 @@ const send = (cmd, args = {}, transfer = [], onProgress) => new Promise((resolve
 const cm = CodeMirror.fromTextArea($('sql'), { mode: 'text/x-sql', lineNumbers: true, matchBrackets: true, styleActiveLine: true, indentUnit: 2,
   extraKeys: { 'Cmd-Enter': () => run(), 'Ctrl-Enter': () => run() } });
 const qUrl = new URLSearchParams(location.search).get('url');
-cm.setValue(qUrl && /^(https?|hf):\/\//.test(qUrl) ? `SELECT * FROM '${qUrl}' LIMIT 100;`
-  : `-- 1. Add data with + in the sidebar (URL, Hugging Face, or a file), or query a URL directly:\nSELECT * FROM '${CW}users.csv' LIMIT 20;\n\n-- 2. Click the scan icon next to a table to discover its PII (Settings → Live for real Jev answers).`);
+cm.setValue(qUrl && /^(https?|hf):\/\//.test(qUrl) ? `SELECT * FROM '${qUrl}' LIMIT 100;` : DEFAULT_SQL);
 for (const k of Object.keys(EXAMPLES)) $('examples').add(new Option(k, k));
 $('examples').onchange = (e) => { if (e.target.value) { cm.setValue(EXAMPLES[e.target.value]); cm.focus(); } e.target.value = ''; };
 $('clear').onclick = () => { cm.setValue(''); $('results').innerHTML = '<div class="empty">Cleared.</div>'; $('meta').textContent = ''; lastResult = null; cm.focus(); };
@@ -442,6 +527,51 @@ $('addFile').onchange = async (e) => {
   await addTable($('addName').value.trim() ? tableName($('addName').value) : tableName(f.name), path, f.name); e.target.value = '';
 };
 
+// ---- sheets (settings and help slide down from the top) --------------------------------
+let openedSheet = null, sheetTrigger = null;
+function openSheet(el, trigger) {
+  if (openedSheet) closeSheet(true);
+  openedSheet = el; sheetTrigger = trigger || null;
+  el.inert = false; el.setAttribute('aria-hidden', 'false'); el.classList.add('open'); $('scrim').classList.add('on');
+  setTimeout(() => el.querySelector('.sheet-body')?.focus({ preventScroll: true }), 60);
+}
+function closeSheet(keepFocus) {
+  if (!openedSheet) return;
+  const el = openedSheet; openedSheet = null;
+  el.classList.remove('open'); el.setAttribute('aria-hidden', 'true'); el.inert = true; $('scrim').classList.remove('on');
+  if (keepFocus !== true) sheetTrigger?.focus();
+}
+$('scrim').onclick = () => closeSheet();
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openedSheet) closeSheet(); });
+document.querySelectorAll('[data-close-sheet]').forEach((b) => { b.onclick = () => closeSheet(); });
+
+async function copyText(text, btn) {
+  const done = () => { const old = btn.innerHTML; btn.innerHTML = `${ic('check')} Copied`; setTimeout(() => { btn.innerHTML = old; }, 1400); };
+  try { await navigator.clipboard.writeText(text); done(); return; } catch {}
+  const ta = document.createElement('textarea'); ta.value = text; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); done(); } catch { btn.textContent = 'Select and copy'; } ta.remove();
+}
+function renderHelp() {
+  $('helpBody').innerHTML = '';
+  HELP.forEach((h, i) => {
+    const art = document.createElement('article'); art.className = 'fn';
+    const head = document.createElement('div'); head.className = 'fn-h'; head.textContent = h.fn; art.appendChild(head);
+    const p = document.createElement('p'); p.textContent = h.what; art.appendChild(p);
+    if (h.sql) {
+      const box = document.createElement('div'); box.className = 'codebox';
+      const pre = document.createElement('pre'); const code = document.createElement('code'); code.textContent = h.sql; pre.appendChild(code);
+      const cb = document.createElement('div'); cb.className = 'cb';
+      const copy = document.createElement('button'); copy.className = 'btn'; copy.innerHTML = `${ic('copy')} Copy`; copy.onclick = () => copyText(h.sql, copy);
+      const use = document.createElement('button'); use.className = 'btn'; use.innerHTML = `${ic('corner-down-left')} Use`;
+      use.onclick = () => { cm.setValue(h.sql); closeSheet(true); cm.focus(); };
+      cb.append(copy, use); box.append(cb, pre); art.appendChild(box);
+    }
+    $('helpBody').appendChild(art);
+  });
+}
+renderHelp();
+$('openHelp').onclick = () => openSheet($('helpSheet'), $('openHelp'));
+
 // ---- settings ---------------------------------------------------------------------
 const settings = { mode: 'mock', url: DEFAULT_ENDPOINT, model: '', n: 20, maxCalls: 100, redact: false, key: '', secret: '' };
 try { Object.assign(settings, JSON.parse(store.get('jev.settings') || '{}'), JSON.parse(store.get('jev.cred') || '{}')); } catch {}
@@ -460,18 +590,20 @@ function readForm() {
 async function applySettings() {
   const r = JSON.parse(await send('set_client', settings));
   const live = r.client !== 'mock';
+  $('mockNote').hidden = live;
   $('modePill').className = 'pill' + (live ? ' live' : ''); $('modePill').innerHTML = `${ic(live ? 'zap' : 'flask-conical')} ${live ? 'live · Jev' : 'mock client'}`;
   $('cl').textContent = `client: ${r.client}${r.model && live ? ' · ' + r.model : ''}`;
   const { key, secret, ...plain } = settings; store.set('jev.settings', JSON.stringify(plain));
   if ($('setRemember').checked) store.set('jev.cred', JSON.stringify({ key, secret })); else store.del('jev.cred');
 }
-$('openSettings').onclick = () => { loadForm(); $('setOut').textContent = 'Not tested yet.'; $('setDlg').showModal(); };
-$('setClose').onclick = () => $('setDlg').close();
-$('setDlg').addEventListener('click', (e) => { const p = e.target.closest('[data-preset]'); if (p) $('setUrl').value = p.dataset.preset; });
+$('openSettings').onclick = () => { loadForm(); $('setOut').textContent = 'Not tested yet.'; openSheet($('setSheet'), $('openSettings')); };
+$('goLive').onclick = () => $('openSettings').click();
+$('setClose').onclick = closeSheet;
+$('setSheet').addEventListener('click', (e) => { const p = e.target.closest('[data-preset]'); if (p) $('setUrl').value = p.dataset.preset; });
 $('setSave').onclick = async () => {
   readForm();
   if (!ready) { $('setOut').textContent = 'Still starting; try again in a moment.'; return; }
-  try { await applySettings(); $('setDlg').close(); } catch (e) { $('setOut').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+  try { await applySettings(); closeSheet(); } catch (e) { $('setOut').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
 };
 $('setTest').onclick = async () => {
   readForm(); const out = $('setOut');
@@ -493,9 +625,10 @@ try {
   ready = true; $('run').disabled = false;
   $('foot').textContent = 'Regimes are an engineering signal, not legal advice.';
   if (settings.mode === 'live') { try { await applySettings(); } catch {} }
-  else { $('modePill').innerHTML = `${ic('flask-conical')} mock client`; $('cl').textContent = 'client: mock'; }
+  else { $('modePill').innerHTML = `${ic('flask-conical')} mock client`; $('cl').textContent = 'client: mock'; $('mockNote').hidden = false; }
   await refreshTree();
-  if (qUrl) run();
+  // The default query runs on open, but only with the mock client: it never spends Jev calls without being asked.
+  if (qUrl || settings.mode !== 'live') run();
 } catch (e) {
   $('tree').innerHTML = `<div class="empty bad">Failed to start: ${esc(e.message || e)}</div>`; $('modePill').textContent = 'error';
 }
