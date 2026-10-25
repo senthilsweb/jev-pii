@@ -54,11 +54,14 @@ fi
 # --- deploy + verify ---------------------------------------------------------------------------
 fly deploy --app "$APP" --config fly.toml --ha=false
 HOST="$APP.fly.dev"
-for i in 1 2 3 4 5 6; do
-  curl -fsS "https://$HOST/healthz" >/dev/null 2>&1 && { echo "healthy: https://$HOST/healthz"; break; }
-  [ "$i" = 6 ] && { echo "health check did not pass; see: fly logs --app $APP" >&2; exit 1; }
+# Fly's own machine check is the source of truth; a new hostname may not resolve on your network for a few minutes.
+for i in 1 2 3 4 5 6 7 8; do
+  fly status --app "$APP" 2>/dev/null | grep -q "passing" && { echo "machine healthy (Fly health check passing)"; break; }
+  [ "$i" = 8 ] && { echo "health check not passing; see: fly logs --app $APP" >&2; exit 1; }
   sleep 5
 done
+curl -fsS -m 10 "https://$HOST/healthz" >/dev/null 2>&1 && echo "reachable from here: https://$HOST/healthz" \
+  || echo "note: $HOST does not resolve from this machine yet (new names can take a few minutes); check from another network or: dig +short $HOST @1.1.1.1"
 
 if [ -n "$DOMAIN" ]; then
   fly certs add "$DOMAIN" --app "$APP" || true

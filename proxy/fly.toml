@@ -1,5 +1,5 @@
 # Fly.io config for jev-proxy. `app` is set by deploy-fly.sh (app names are global on Fly).
-app = "jev-proxy-CHANGE-ME"
+app = "jev-proxy-senthil"
 primary_region = "iad"
 
 [build]

@@ -336,7 +336,12 @@ $('probe').onclick = async () => {
     const r = await fetch($('url').value, { method: 'POST', headers: { Authorization: 'Bearer dummy-not-a-real-key', 'Content-Type': 'application/json' }, body: '{}' });
     $('probeOut').innerHTML = `<span class="ok">Reachable.</span> The browser allowed the call; the API answered HTTP ${r.status} (expected, the key is a dummy).`;
   } catch (e) {
-    $('probeOut').innerHTML = `<span class="bad">Blocked by CORS.</span> ${esc(e.message)}\nThis endpoint does not allow ${esc(location.origin)}. Use a jev-proxy endpoint.`;
+    // A no-cors request is never blocked by CORS: if it also fails, the host is unreachable (DNS, offline, TLS).
+    let reachable = true;
+    try { await fetch($('url').value, { mode: 'no-cors' }); } catch { reachable = false; }
+    $('probeOut').innerHTML = reachable
+      ? `<span class="bad">Blocked by CORS.</span> ${esc(e.message)}\nThe host is reachable but does not allow ${esc(location.origin)}. Use a jev-proxy endpoint.`
+      : `<span class="bad">Cannot reach the host.</span> ${esc(e.message)}\nThis is a network problem (DNS, offline or TLS), not CORS. A brand-new hostname can take a few minutes to resolve on some networks.`;
   }
 };
 
