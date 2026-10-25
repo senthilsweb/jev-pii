@@ -23,7 +23,7 @@ FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_sampl
 
 ## Try it in the browser
 
-`index.html` runs the same Python function inside DuckDB in WebAssembly (Pyodide), no install: **https://www.senthilsweb.com/jev-pii/**
+`index.html` is a small SQL studio (table list, editor, results grid) running DuckDB plus the same Python `jev_pii()` function in WebAssembly (Pyodide), no install: **https://www.senthilsweb.com/jev-pii/**
 Mock mode works anywhere. Live mode needs a CORS-enabled endpoint: the Jev API does not allow browser origins yet, so run the [`proxy/`](proxy/) (`ghcr.io/senthilsweb/jev-proxy`) and open the page with `?endpoint=https://your-proxy/v1/systemone`. The page has a one-click CORS check.
 
 ## Run it

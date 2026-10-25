@@ -36,6 +36,11 @@ def register(con, client, redact=False):
         except (JevError, KeyError, TypeError):
             return None
 
+    for name in ("jev_pii", "policy_action"):        # re-registering swaps the client (mock <-> live)
+        try:
+            con.remove_function(name)
+        except duckdb.Error:
+            pass
     con.create_function("jev_pii", jev_pii, [T.VARCHAR, T.VARCHAR, duckdb.list_type(T.VARCHAR)],
                         struct, side_effects=True, null_handling="special")
     con.create_function("policy_action", action_for, [T.VARCHAR, T.DOUBLE], T.VARCHAR)

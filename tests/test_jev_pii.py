@@ -159,3 +159,16 @@ def test_proxy_secret_is_sent_and_key_is_optional():
                   cache_dir=None, opener=opener)
     c.ask({"column": "x"}, pii_questions())
     assert seen[0].get("X-proxy-secret") == "s" * 20 and "Authorization" not in seen[0]
+
+
+def test_register_twice_swaps_the_client():
+    con = make_con(MockJev())
+
+    class Fixed(MockJev):
+        def ask(self, state, questions):
+            a = super().ask(state, questions)
+            a["category"]["choice"] = "GENDER"
+            return a
+    register(con, Fixed())
+    assert con.execute("SELECT jev_pii('t','name',['a']).category").fetchone() == ("GENDER",)
+    con.close()
