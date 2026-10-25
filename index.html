@@ -109,18 +109,21 @@
   .ok { color:var(--accent); } .bad { color:var(--bad); } .mute { color:var(--mute); }
 
   .btn.sq iconify-icon { font-size:17px; }
-  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.36); opacity:0; pointer-events:none; transition:opacity .18s; z-index:40; }
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .25s; z-index:40; }
   .scrim.on { opacity:1; pointer-events:auto; }
-  .sheet { position:fixed; top:0; left:50%; width:min(780px, 100vw); max-height:90vh; display:flex; flex-direction:column; background:var(--panel); color:var(--fg);
-    border:1px solid var(--line); border-top:0; border-radius:0 0 16px 16px; box-shadow:0 20px 56px rgba(0,0,0,.34); z-index:41;
-    transform:translate(-50%, -104%); visibility:hidden; transition:transform .24s cubic-bezier(.2,.8,.2,1), visibility 0s linear .24s; }
-  .sheet.open { transform:translate(-50%, 0); visibility:visible; transition:transform .24s cubic-bezier(.2,.8,.2,1), visibility 0s; }
-  .sheet-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 18px 6px; }
-  .sheet-head h2 { margin:0; font-size:17px; display:flex; align-items:center; gap:8px; }
-  .sheet-body { flex:1 1 auto; overflow:auto; padding:2px 18px 16px; }
-  .sheet-foot { flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:11px 18px; border-top:1px solid var(--line); background:var(--panel); border-radius:0 0 16px 16px; }
-  .sheet-foot .msg { flex:1; min-width:0; font-size:12.5px; color:var(--mute); line-height:1.4; max-height:2.8em; overflow:auto; }
-  .sheet-foot .actions { margin-left:auto; display:flex; gap:8px; flex:0 0 auto; }
+  .sheet { position:fixed; top:0; right:0; bottom:0; width:min(520px, 100vw); display:flex; flex-direction:column; background:var(--panel); color:var(--fg);
+    border-left:1px solid var(--line); box-shadow:-12px 0 40px rgba(0,0,0,.28); z-index:41;
+    transform:translateX(102%); visibility:hidden; transition:transform .3s cubic-bezier(.32,.72,0,1), visibility 0s linear .3s; }
+  .sheet.open { transform:translateX(0); visibility:visible; transition:transform .3s cubic-bezier(.32,.72,0,1), visibility 0s; }
+  .sheet-head { flex:0 0 auto; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; padding:18px 20px 8px; }
+  .sheet-head h2 { margin:0; font-size:17px; font-weight:650; display:flex; align-items:center; gap:8px; }
+  .sheet-head .sub { margin:4px 0 0; color:var(--mute); font-size:13px; }
+  .sheet-body { flex:1 1 auto; overflow:auto; padding:4px 20px 18px; }
+  .sheet-foot { flex:0 0 auto; display:flex; flex-direction:column; gap:10px; padding:12px 20px 16px; border-top:1px solid var(--line); background:var(--panel); }
+  .sheet-foot .msg { min-width:0; font-size:12.5px; color:var(--mute); line-height:1.4; max-height:3.6em; overflow:auto; }
+  .sheet-foot .actions { display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+  .btn.plain { border-color:transparent; background:transparent; color:var(--mute); }
+  .btn.plain:hover { background:var(--sel); color:var(--fg); border-color:transparent; }
   .fn { border-top:1px solid var(--line); padding:12px 0 4px; }
   .fn:first-child { border-top:0; padding-top:4px; }
   .fn-h { font-family:ui-monospace, Menlo, monospace; font-size:13.5px; font-weight:600; color:var(--accent); }
@@ -143,13 +146,13 @@
 </head>
 <body>
 <header>
-  <button class="btn sq" id="toggleSide" aria-label="Show tables" title="Tables"><iconify-icon icon="lucide:panel-left"></iconify-icon></button>
+  <button class="btn sq plain" id="toggleSide" aria-label="Show tables" title="Tables"><iconify-icon icon="lucide:panel-left"></iconify-icon></button>
   <h1><iconify-icon icon="lucide:database-zap" style="color:var(--accent);font-size:19px"></iconify-icon> jev_pii studio</h1>
   <span class="sub">DuckDB + Python in your browser · typed PII and compliance answers from TypeSafe Jev</span>
   <div class="right">
     <span class="pill" id="modePill"><iconify-icon icon="lucide:loader-circle"></iconify-icon> starting…</span>
-    <button class="btn sq" id="openHelp" aria-label="Help: what each function does" title="Help"><iconify-icon icon="lucide:circle-help"></iconify-icon></button>
-    <button class="btn sq" id="openSettings" aria-label="Settings" title="Settings"><iconify-icon icon="lucide:settings-2"></iconify-icon></button>
+    <button class="btn sq plain" id="openHelp" aria-label="Help: what each function does" title="Help"><iconify-icon icon="lucide:circle-help"></iconify-icon></button>
+    <button class="btn sq plain" id="openSettings" aria-label="Settings" title="Settings"><iconify-icon icon="lucide:settings-2"></iconify-icon></button>
   </div>
 </header>
 
@@ -210,10 +213,9 @@
 <!-- Settings: a sheet that slides down from the top; actions live in the fixed footer -->
 <div class="scrim" id="scrim"></div>
 <section class="sheet" id="setSheet" role="dialog" aria-modal="true" aria-labelledby="setTitle" aria-hidden="true" inert>
-  <div class="sheet-head"><h2 id="setTitle"><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</h2>
-    <button class="btn sq" data-close-sheet aria-label="Close settings" title="Close"><iconify-icon icon="lucide:x"></iconify-icon></button></div>
+  <div class="sheet-head"><div><h2 id="setTitle"><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</h2><p class="sub">How the Jev functions reach the model.</p></div>
+    <button class="btn sq plain" data-close-sheet aria-label="Close settings" title="Close"><iconify-icon icon="lucide:x"></iconify-icon></button></div>
   <div class="sheet-body" tabindex="-1">
-    <p class="lead">How the Jev functions reach the model.</p>
     <h3>Connection</h3>
     <div class="chips" style="margin-bottom:4px">
       <label class="btn" style="margin:0"><input type="radio" name="mode" value="mock" checked> Mock</label>
@@ -255,11 +257,10 @@
 
 <!-- Help: every function, one example each, copyable -->
 <section class="sheet" id="helpSheet" role="dialog" aria-modal="true" aria-labelledby="helpTitle" aria-hidden="true" inert>
-  <div class="sheet-head"><h2 id="helpTitle"><iconify-icon icon="lucide:circle-help"></iconify-icon> Functions</h2>
-    <button class="btn sq" data-close-sheet aria-label="Close help" title="Close"><iconify-icon icon="lucide:x"></iconify-icon></button></div>
+  <div class="sheet-head"><div><h2 id="helpTitle"><iconify-icon icon="lucide:circle-help"></iconify-icon> Functions</h2><p class="sub">One example each. Copy it, or put it in the editor.</p></div>
+    <button class="btn sq plain" data-close-sheet aria-label="Close help" title="Close"><iconify-icon icon="lucide:x"></iconify-icon></button></div>
   <div class="sheet-body" id="helpBody" tabindex="-1"></div>
-  <div class="sheet-foot"><div class="msg">Copy puts the code on your clipboard. Use puts it in the editor.</div>
-    <div class="actions"><button class="btn run" data-close-sheet>Close</button></div></div>
+  <div class="sheet-foot"><div class="actions"><button class="btn run" data-close-sheet>Close</button></div></div>
 </section>
 
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.js"></script>
@@ -307,7 +308,7 @@ asked AS (                        -- 2. ASK: the row goes in once. Four question
   ) AS a
   FROM src
 )
-SELECT name, dateOfBirth, contactInfo, specialty,      -- 3. THE RESULT: your 4 columns, then one answer per column
+SELECT name, dateOfBirth, contactInfo, specialty,      -- 3. RESULT: the original columns, then one answer per column
        a.name_is_real      AS jev_name_is_real,        -- 0 to 1: is name a real full name?
        a.dob_is_plausible  AS jev_dob_is_plausible,    -- 0 to 1: is dateOfBirth a plausible date of birth?
        a.contact_kind      AS jev_contact_kind,        -- phone, email, other or none
@@ -317,11 +318,11 @@ FROM asked;`;
 // 1. The default: one question per column, on ten real rows.
 const DEFAULT_SQL = perColumnSql(
   `-- One call per row. Each question is about ONE column and says so. The answers come back as jev_* columns.`,
-  `  -- 1. YOUR DATA: four columns of a clinician list (Claimwise, synthetic)\n  SELECT name, dateOfBirth, contactInfo, specialty\n  FROM '${USERS}'\n  LIMIT 10`);
+  `  -- 1. SOURCE: four columns of a clinician list (Claimwise, synthetic)\n  SELECT name, dateOfBirth, contactInfo, specialty\n  FROM '${USERS}'\n  LIMIT 10`);
 // 2. The same query with four rows that each have one deliberately broken value.
 const BROKEN_SQL = perColumnSql(
   `-- The same query, with four extra rows that each have ONE deliberately broken value. Watch only the matching jev_ column drop.\n-- (row 4: a number as the name. row 5: an impossible date. row 6: text instead of a phone. row 7: a nonsense specialty.)`,
-  `  -- 1. YOUR DATA: 3 real rows, then 4 test rows\n  (SELECT name, dateOfBirth::VARCHAR AS dateOfBirth, contactInfo, specialty FROM '${USERS}' LIMIT 3)\n  UNION ALL\n  (SELECT * FROM (VALUES\n    ('48213',       '1984-06-17', '(794)507-8161x849', 'Cardiology'),\n    ('Maria Gomez', '2031-02-30', '(794)507-8161',     'Cardiology'),\n    ('Maria Gomez', '1984-06-17', 'call me later',     'Cardiology'),\n    ('Maria Gomez', '1984-06-17', '(794)507-8161',     'Basket Weaving')) t(name, dateOfBirth, contactInfo, specialty))`);
+  `  -- 1. SOURCE: 3 real rows, then 4 test rows\n  (SELECT name, dateOfBirth::VARCHAR AS dateOfBirth, contactInfo, specialty FROM '${USERS}' LIMIT 3)\n  UNION ALL\n  (SELECT * FROM (VALUES\n    ('48213',       '1984-06-17', '(794)507-8161x849', 'Cardiology'),\n    ('Maria Gomez', '2031-02-30', '(794)507-8161',     'Cardiology'),\n    ('Maria Gomez', '1984-06-17', 'call me later',     'Cardiology'),\n    ('Maria Gomez', '1984-06-17', '(794)507-8161',     'Basket Weaving')) t(name, dateOfBirth, contactInfo, specialty))`);
 // 3. Only one column is sent at all.
 const ONE_COLUMN_SQL = `-- Only ONE column is sent: jev_ask({'contactInfo': contactInfo}, ...) passes just that column, with its name. Nothing else leaves.
 WITH src AS (
@@ -349,23 +350,57 @@ SELECT name, dateOfBirth, contactInfo, specialty,
        a.looks_valid       AS jev_contact_valid,
        a.gdpr              AS jev_contact_gdpr
 FROM asked;`;
+const SEVERAL_KINDS_SQL = `-- A row can hold several kinds of personal data. Ask one question per kind, then list the kinds that score above 0.5.
+-- (jev_pii_row returns ONE category per row. This is how to get every match.)
+WITH src AS (
+  SELECT name, dateOfBirth, contactInfo, specialty
+  FROM '${USERS}'
+  LIMIT 10
+),
+asked AS (
+  SELECT *, json_transform(
+    jev_ask(src, '{
+      "has_name":    {"type": "noul", "instructions": "Probability that this row contains the name of a person."},
+      "has_dob":     {"type": "noul", "instructions": "Probability that this row contains a date of birth."},
+      "has_phone":   {"type": "noul", "instructions": "Probability that this row contains a phone number."},
+      "has_email":   {"type": "noul", "instructions": "Probability that this row contains an email address."},
+      "has_address": {"type": "noul", "instructions": "Probability that this row contains a postal address."},
+      "has_id":      {"type": "noul", "instructions": "Probability that this row contains a government or account ID number."}
+    }'),
+    '{"has_name":"DOUBLE","has_dob":"DOUBLE","has_phone":"DOUBLE","has_email":"DOUBLE","has_address":"DOUBLE","has_id":"DOUBLE"}'
+  ) AS a
+  FROM src
+)
+SELECT name, dateOfBirth, contactInfo, specialty,
+       array_to_string(list_filter([
+         CASE WHEN a.has_name    > 0.5 THEN 'NAME' END,
+         CASE WHEN a.has_dob     > 0.5 THEN 'DATE_OF_BIRTH' END,
+         CASE WHEN a.has_phone   > 0.5 THEN 'PHONE' END,
+         CASE WHEN a.has_email   > 0.5 THEN 'EMAIL' END,
+         CASE WHEN a.has_address > 0.5 THEN 'ADDRESS' END,
+         CASE WHEN a.has_id      > 0.5 THEN 'ID_NUMBER' END],
+         lambda x: x IS NOT NULL), ', ') AS jev_pii_kinds,   -- every kind that matched, comma separated
+       a.has_name AS jev_has_name, a.has_dob AS jev_has_dob, a.has_phone AS jev_has_phone,
+       a.has_email AS jev_has_email, a.has_address AS jev_has_address, a.has_id AS jev_has_id
+FROM asked;`;
 const EXAMPLES = {
   '1 · One question per column (default)': DEFAULT_SQL,
   '2 · Catch broken values: the same query with 4 bad rows': BROKEN_SQL,
   '3 · Ask about just one column': ONE_COLUMN_SQL,
-  '4 · The built-in PII questions: jev_pii_row (whole row)': `-- the built-in question set (personal data, category, six regimes) as 11 extra columns\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${USERS}' LIMIT 10) t;`,
-  '5 · Raw to silver on a Hugging Face file': `-- RAW to SILVER. The original columns stay as they are; every Jev answer is a NEW column prefixed jev_.\nCREATE OR REPLACE TABLE silver_pii_check AS\nWITH raw AS (                       -- 1. RAW: 3 of the file's 5 columns, untouched\n  SELECT column_name, records, output AS source_label\n  FROM '${HF}'\n  LIMIT 10\n),\nasked AS (                          -- 2. ASK: send one column (records, with column_name as context) to Jev\n  SELECT *, jev_pii_row({'column_name': column_name, 'sample_values': records}) AS jev\n  FROM raw\n),\ndecided AS (                        -- 3. DECIDE: the answers become aliased columns, plus the rule's action\n  SELECT column_name, records, source_label,\n         jev.sensitive      AS jev_sensitive,       -- 0 to 1: does it hold personal data?\n         jev.category       AS jev_category,        -- which kind, from a fixed list\n         jev.category_conf  AS jev_category_conf,   -- how sure of that pick\n         jev.regime_gdpr    AS jev_gdpr,            -- 0 to 1: does GDPR apply?\n         jev.regime_hipaa   AS jev_hipaa,           -- 0 to 1: does HIPAA apply?\n         policy_action(jev.category, jev.sensitive) AS jev_action   -- keep, mask, hash, drop or review (see example 6)\n  FROM asked\n)\nSELECT *,                           -- 4. SILVER: apply the action to the value\n       CASE jev_action WHEN 'keep' THEN records\n                       WHEN 'hash' THEN md5(records)\n                       WHEN 'mask' THEN '***'\n                       ELSE NULL    -- drop or review: the value is not loaded\n       END AS records_silver\nFROM decided;\n\nSELECT * FROM silver_pii_check;`,
-  '6 · The rule behind jev_action': `-- policy_action(category, score) is NOT an AI answer. It is a fixed rule in code:\n--   score below 0.5 and category NONE            -> keep\n--   a confident category, by the table below      -> mask, hash or drop\n--   the score and the category disagree, or Jev failed -> review (a person decides)\n-- This table shows the "by the table below" part. It is a read-only copy: to use a different rule, join your own table.\nSELECT action, string_agg(category, ', ' ORDER BY category) AS categories\nFROM jev_policy GROUP BY action ORDER BY action;`,
-  '7 · Look at the raw Hugging Face file': `-- 5 columns: column_name, records (sample values of another column), output (the dataset's label, None = not PII),\n-- and instruction and input (training prompt text, ignored here).\nSELECT column_name, records, output AS source_label\nFROM '${HF}'\nLIMIT 10;`,
-  '8 · Profile one column from a sample': `-- one column, judged from a sample of its values: a one-row table\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
-  '9 · Catalog: read pii_catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
+  '4 · Several kinds of personal data in one row': SEVERAL_KINDS_SQL,
+  '5 · The built-in PII questions: jev_pii_row (whole row)': `-- the built-in question set (personal data, category, six regimes) as 11 extra columns\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${USERS}' LIMIT 10) t;`,
+  '6 · Raw to silver on a Hugging Face file': `-- RAW to SILVER. The original columns stay as they are; every Jev answer is a NEW column prefixed jev_.\nCREATE OR REPLACE TABLE silver_pii_check AS\nWITH raw AS (                       -- 1. RAW: 3 of the file's 5 columns, untouched\n  SELECT column_name, records, output AS source_label\n  FROM '${HF}'\n  LIMIT 10\n),\nasked AS (                          -- 2. ASK: send one column (records, with column_name as context) to Jev\n  SELECT *, jev_pii_row({'column_name': column_name, 'sample_values': records}) AS jev\n  FROM raw\n),\ndecided AS (                        -- 3. DECIDE: the answers become aliased columns, plus the rule's action\n  SELECT column_name, records, source_label,\n         jev.sensitive      AS jev_sensitive,       -- 0 to 1: does it hold personal data?\n         jev.category       AS jev_category,        -- which kind, from a fixed list\n         jev.category_conf  AS jev_category_conf,   -- how sure of that pick\n         jev.regime_gdpr    AS jev_gdpr,            -- 0 to 1: does GDPR apply?\n         jev.regime_hipaa   AS jev_hipaa,           -- 0 to 1: does HIPAA apply?\n         policy_action(jev.category, jev.sensitive) AS jev_action   -- keep, mask, hash, drop or review (see example 7)\n  FROM asked\n)\nSELECT *,                           -- 4. SILVER: apply the action to the value\n       CASE jev_action WHEN 'keep' THEN records\n                       WHEN 'hash' THEN md5(records)\n                       WHEN 'mask' THEN '***'\n                       ELSE NULL    -- drop or review: the value is not loaded\n       END AS records_silver\nFROM decided;\n\nSELECT * FROM silver_pii_check;`,
+  '7 · The rule behind jev_action': `-- policy_action(category, score) is NOT an AI answer. It is a fixed rule in code:\n--   score below 0.5 and category NONE            -> keep\n--   a confident category, by the table below      -> mask, hash or drop\n--   the score and the category disagree, or Jev failed -> review (a person decides)\n-- This table shows the "by the table below" part. It is a read-only copy: to use a different rule, join a table of your choice.\nSELECT action, string_agg(category, ', ' ORDER BY category) AS categories\nFROM jev_policy GROUP BY action ORDER BY action;`,
+  '8 · Look at the raw Hugging Face file': `-- 5 columns: column_name, records (sample values of another column), output (the dataset's label, None = not PII),\n-- and instruction and input (training prompt text, ignored here).\nSELECT column_name, records, output AS source_label\nFROM '${HF}'\nLIMIT 10;`,
+  '9 · Profile one column from a sample': `-- one column, judged from a sample of its values: a one-row table\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
+  '10 · Catalog: read pii_catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
 };
 
 // Help: every function, one example each.
 const HELP = [
-  { fn: 'jev_pii_row(t)', what: "Jev's built-in personal-data answers for every row: 11 columns (sensitive, category, category_conf, regime_gdpr, ...). It sends the whole row t. To limit it to one column, pass {'col': col} instead of t.",
+  { fn: 'jev_pii_row(t)', what: "Jev's built-in personal-data answers for every row: 11 columns (sensitive, category, category_conf, regime_gdpr, ...). Category is ONE pick per row, with a runner_up; for every kind that matches, see example 4. It sends the whole row t. To limit it to one column, pass {'col': col} instead of t.",
     sql: `SELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 10) t;` },
-  { fn: 'jev_ask(t, questions)', what: "Your own questions, one call per row. Every column of t is sent. Point a question at one column by naming it: 'About the dateOfBirth value only: ...'. Returns JSON; json_transform names the columns. noul = a score 0 to 1. choice = one pick from criteria, plus name_conf.",
+  { fn: 'jev_ask(t, questions)', what: "Custom questions, one call per row. Every column of t is sent. Point a question at one column by naming it: 'About the dateOfBirth value only: ...'. Returns JSON; json_transform names the columns. noul = a score 0 to 1. choice = one pick from criteria, plus name_conf.",
     sql: `SELECT t.*, unnest(json_transform(\n  jev_ask(t, '{\n    "name_is_real": {"type": "noul", "instructions": "About the name value only: probability that it is a real full name."},\n    "dob_ok": {"type": "noul", "instructions": "About the dateOfBirth value only: probability that it is a plausible date of birth."}\n  }'),\n  '{"name_is_real": "DOUBLE", "dob_ok": "DOUBLE"}'))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 5) t;` },
   { fn: "jev_ask({'col': col}, questions)", what: 'Send only one column: its name and value go to Jev, nothing else. Write the column in curly braces as {name: value}.',
     sql: `SELECT t.name, t.contactInfo, unnest(json_transform(\n  jev_ask({'contactInfo': t.contactInfo}, '{"is_phone": {"type": "noul", "instructions": "Probability that this value is a phone number."}}'),\n  '{"is_phone": "DOUBLE"}'))\nFROM (SELECT name, contactInfo FROM '${USERS}' LIMIT 5) t;` },
@@ -375,7 +410,7 @@ const HELP = [
     sql: `SELECT r.* FROM (SELECT jev_pii('users', 'contactInfo', ['321.581.9600']) AS r);` },
   { fn: 'policy_action(category, score)', what: 'A fixed rule, not AI: keep, mask, hash, drop or review. The rule is readable in the jev_policy table.',
     sql: `SELECT policy_action('PERSON_NAME', 0.9) AS action;   -- mask\nSELECT * FROM jev_policy ORDER BY action;` },
-  { fn: "'https://...'  or  'hf://...'", what: 'Query a CSV, Parquet or JSON URL, or a Hugging Face file, directly. Your browser fetches it. Nothing is uploaded.',
+  { fn: "'https://...'  or  'hf://...'", what: 'Query a CSV, Parquet or JSON URL, or a Hugging Face file, directly. The browser fetches it. Nothing is uploaded.',
     sql: `SELECT * FROM '${HF}' LIMIT 5;` },
   { fn: 'Sidebar icons', what: 'Scan icon: ask Jev about every column of a table, into pii_catalog. Mask icon: create silver_<table> with the rule applied.', sql: null },
 ];

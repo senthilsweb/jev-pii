@@ -63,8 +63,9 @@ and the same Python `jev_pii()` function in WebAssembly (Pyodide, in a Web Worke
   column of a clinician list (name, date of birth, contact, specialty), and returns the answers as aliased `jev_*` columns.
   It runs with the mock client, so it never spends calls unasked. Example 2 adds four deliberately broken rows so you can
   see only the matching question drop.
-- **Help** (the `?` icon): every function with a one-line explanation and code you can copy or put in the editor.
-- **Settings** (the gear icon, a sheet that slides down): mock or live, endpoint, model, your TypeSafe key and/or proxy secret, sample size, shapes-only mode,
+- **Help** (the `?` icon, same drawer): every function with a one-line explanation and code to copy or put in the editor.
+- **Several kinds in one row**: `jev_pii_row` gives ONE category per row. Example 4 asks one yes/no question per kind and lists every match, e.g. `NAME, DATE_OF_BIRTH, PHONE`.
+- **Settings** (the gear icon, a drawer that slides in from the right): mock or live, endpoint, model, your TypeSafe key and/or proxy secret, sample size, shapes-only mode,
   and an opt-in "remember on this device". The Jev API does not allow browser origins yet, so live mode needs a
   [`proxy/`](proxy/) endpoint (`ghcr.io/senthilsweb/jev-proxy`); `?endpoint=` overrides the default.
 
