@@ -6,7 +6,7 @@ import duckdb
 import pytest
 
 from jev_pii import JevClient, JevError, MockJev, flatten, pii_questions, register
-from jev_pii.catalog import action_for, build_catalog, build_silver, deep_dive, sample_columns
+from jev_pii.catalog import action_for, build_catalog, build_silver, deep_dive, discover, sample_columns
 from jev_pii.udf import shape
 
 
@@ -171,4 +171,21 @@ def test_register_twice_swaps_the_client():
             return a
     register(con, Fixed())
     assert con.execute("SELECT jev_pii('t','name',['a']).category").fetchone() == ("GENDER",)
+    con.close()
+
+
+def test_discover_is_incremental_and_repeatable_per_table():
+    con = make_con(MockJev())
+    con.execute("CREATE TABLE other AS SELECT * FROM (VALUES ('x@y.com', 1)) t(email, n)")
+    steps = []
+    assert discover(con, "people", progress=lambda d, t, c: steps.append((d, t, c))) == 3
+    assert steps[-1] == (3, 3, "score")
+    discover(con, "other")
+    discover(con, "people")                      # again: replaces people's rows, keeps other's
+    got = con.execute("SELECT table_name, count(*) FROM pii_catalog GROUP BY 1 ORDER BY 1").fetchall()
+    assert got == [("other", 2), ("people", 3)]
+    actions = dict(con.execute("SELECT column_name, action FROM pii_catalog").fetchall())
+    assert actions["name"] == "mask" and actions["score"] == "keep" and actions["n"] == "keep"
+    build_silver(con, ["people"], catalog="pii_catalog")
+    assert con.execute("SELECT name, score FROM silver_people LIMIT 1").fetchone() == ("***", 10)
     con.close()

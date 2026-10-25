@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>jev_pii studio</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css">
+<script src="https://cdn.jsdelivr.net/npm/iconify-icon@2.1.0/dist/iconify-icon.min.js"></script>
 <style>
   :root {
     --bg:#fbfaf7; --panel:#ffffff; --side:#f4f2ec; --fg:#1b1b1a; --mute:#6b6a66; --line:#e3e0d8;
@@ -20,40 +21,45 @@
   html, body { height:100%; }
   body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 system-ui, sans-serif; display:flex; flex-direction:column; overflow:hidden; }
   code, pre, input, select, .mono { font:13px/1.5 ui-monospace, Menlo, monospace; }
-  button { font:inherit; }
+  button { font:inherit; color:inherit; }
   a { color:var(--accent); }
+  iconify-icon { font-size:16px; flex:0 0 auto; vertical-align:-3px; }
 
-  /* top bar */
-  header { flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:8px 14px; border-bottom:1px solid var(--line); background:var(--panel); }
-  header h1 { font-size:15px; margin:0; font-weight:650; white-space:nowrap; }
+  header { flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:7px 12px; border-bottom:1px solid var(--line); background:var(--panel); }
+  header h1 { font-size:15px; margin:0; font-weight:650; white-space:nowrap; display:flex; align-items:center; gap:7px; }
   header .sub { color:var(--mute); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  header .right { margin-left:auto; display:flex; align-items:center; gap:10px; }
-  .pill { font-size:12px; padding:2px 9px; border:1px solid var(--line); border-radius:99px; color:var(--mute); white-space:nowrap; }
+  header .right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .pill { font-size:12px; padding:2px 9px; border:1px solid var(--line); border-radius:99px; color:var(--mute); white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
   .pill.live { color:var(--accent); border-color:var(--accent); }
-  .btn { padding:6px 12px; border:1px solid var(--line); background:var(--panel); color:var(--fg); border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .btn { padding:6px 11px; border:1px solid var(--line); background:var(--panel); border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
   .btn:hover { border-color:var(--mute); }
   .btn.run { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  .btn.sq { padding:6px 8px; } .btn.tiny { padding:2px 6px; border-color:transparent; background:transparent; color:var(--mute); }
+  .btn.tiny:hover { color:var(--fg); background:var(--sel); }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
-  .btn.icon { padding:6px 9px; }
+  #toggleSide { display:none; }
 
-  /* app grid */
   #app { flex:1 1 auto; display:flex; min-height:0; position:relative; }
-  aside#side { flex:0 0 var(--sbw, 260px); min-width:150px; max-width:60vw; background:var(--side); display:flex; flex-direction:column; min-height:0; }
-  aside .head { padding:10px 12px 6px; font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--mute); display:flex; align-items:center; justify-content:space-between; }
-  #tree { overflow:auto; padding:0 6px 12px; flex:1; }
+  aside#side { flex:0 0 var(--sbw, 270px); min-width:170px; max-width:60vw; background:var(--side); display:flex; flex-direction:column; min-height:0; }
+  .head { padding:9px 10px 5px 12px; font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--mute); display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .head .grp { display:flex; gap:2px; }
+  #tree { overflow:auto; padding:0 6px 8px; flex:1 1 auto; min-height:60px; }
+  #tree .empty { padding:10px 8px; color:var(--mute); font-size:12.5px; }
   #tree details { margin:1px 0; }
-  #tree summary { cursor:pointer; padding:3px 6px; border-radius:5px; list-style:none; display:flex; align-items:center; gap:6px; user-select:none; }
+  #tree summary { cursor:pointer; padding:3px 4px; border-radius:5px; list-style:none; display:flex; align-items:center; gap:5px; user-select:none; }
   #tree summary::-webkit-details-marker { display:none; }
-  #tree summary::before { content:"▸"; color:var(--mute); font-size:11px; width:10px; }
-  #tree details[open] > summary::before { content:"▾"; }
+  #tree summary .chev { color:var(--mute); transition:transform .12s; }
+  #tree details[open] > summary .chev { transform:rotate(90deg); }
   #tree summary:hover, #tree .col:hover { background:var(--sel); }
-  #tree .tname { font-weight:600; overflow:hidden; text-overflow:ellipsis; }
-  #tree .kind { margin-left:auto; font-size:10.5px; color:var(--mute); }
-  #tree .peek { visibility:hidden; border:0; background:none; color:var(--accent); cursor:pointer; padding:0 4px; }
-  #tree summary:hover .peek { visibility:visible; }
-  #tree .col { display:flex; justify-content:space-between; gap:8px; padding:1px 8px 1px 26px; border-radius:5px; cursor:pointer; }
-  #tree .col .t { color:var(--mute); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #tree .fn { padding:8px 8px 2px; color:var(--mute); font-size:12px; }
+  #tree .tname { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #tree .acts { margin-left:auto; display:none; gap:0; } #tree summary:hover .acts { display:flex; }
+  #tree .kind { margin-left:auto; font-size:10.5px; color:var(--mute); } #tree summary:hover .kind { display:none; }
+  #tree .col { display:flex; align-items:center; gap:6px; padding:1px 8px 1px 26px; border-radius:5px; cursor:pointer; }
+  #tree .col .t { margin-left:auto; color:var(--mute); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #tree .col iconify-icon { color:var(--mute); font-size:13px; }
+  #fns { border-top:1px solid var(--line); padding-bottom:8px; max-height:40%; overflow:auto; }
+  #fns button { display:block; width:calc(100% - 12px); margin:1px 6px; text-align:left; background:none; border:0; border-radius:5px; padding:4px 6px; cursor:pointer; }
+  #fns button:hover { background:var(--sel); } #fns .sig { color:var(--accent); } #fns .d { display:block; color:var(--mute); font-size:11.5px; font-family:system-ui, sans-serif; }
 
   .vgut, .hgut { flex:0 0 auto; background:var(--line); position:relative; touch-action:none; }
   .vgut { width:5px; cursor:col-resize; } .hgut { height:5px; cursor:row-resize; }
@@ -61,10 +67,11 @@
   body.resizing { user-select:none; }
 
   main { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; min-height:0; }
-  .bar { flex:0 0 auto; display:flex; align-items:center; gap:8px; padding:7px 10px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+  .bar { flex:0 0 auto; display:flex; align-items:center; gap:7px; padding:6px 10px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
   .bar select { padding:5px 8px; border:1px solid var(--line); background:var(--panel); color:var(--fg); border-radius:6px; max-width:100%; }
   .bar .meta { margin-left:auto; color:var(--mute); font-size:12.5px; }
-  #edwrap { flex:0 0 var(--edh, 220px); min-height:70px; max-height:75%; position:relative; background:var(--panel); }
+  #prog { height:2px; background:transparent; } #prog i { display:block; height:100%; width:0; background:var(--accent); transition:width .15s; }
+  #edwrap { flex:0 0 var(--edh, 200px); min-height:70px; max-height:75%; position:relative; background:var(--panel); }
   #edwrap .CodeMirror { height:100%; background:var(--panel); color:var(--fg); font:13px/1.55 ui-monospace, Menlo, monospace; }
   .CodeMirror-gutters { background:var(--side); border-right:1px solid var(--line); }
   .CodeMirror-linenumber { color:var(--mute); }
@@ -76,82 +83,137 @@
   .cm-s-default .cm-builtin, .cm-s-default .cm-atom, .cm-s-default .cm-type { color:var(--n); }
 
   #results { flex:1 1 auto; min-height:0; overflow:auto; background:var(--panel); }
-  #results .empty { color:var(--mute); padding:18px; }
-  #results .err { color:var(--bad); padding:14px 16px; white-space:pre-wrap; }
+  #results .empty { color:var(--mute); padding:18px; } #results .err { color:var(--bad); padding:14px 16px; white-space:pre-wrap; }
   table { border-collapse:collapse; font-size:12.5px; min-width:100%; }
   th, td { text-align:left; padding:5px 12px; border-bottom:1px solid var(--line); white-space:nowrap; max-width:420px; overflow:hidden; text-overflow:ellipsis; }
   th { position:sticky; top:0; background:var(--side); color:var(--mute); font-weight:600; z-index:1; }
   td.null { color:var(--mute); font-style:italic; } td.num { text-align:right; font-variant-numeric:tabular-nums; }
   td.a-mask, td.a-hash, td.a-drop { color:var(--accent); font-weight:600; } td.a-review { color:var(--bad); font-weight:600; }
-  footer { flex:0 0 auto; display:flex; gap:14px; padding:4px 12px; border-top:1px solid var(--line); background:var(--panel); color:var(--mute); font-size:12px; }
+  footer { flex:0 0 auto; display:flex; gap:14px; padding:4px 12px; border-top:1px solid var(--line); background:var(--panel); color:var(--mute); font-size:12px; align-items:center; }
   footer .grow { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-  /* settings */
-  #settings { position:fixed; top:46px; right:12px; width:min(420px, calc(100vw - 24px)); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; box-shadow:0 8px 28px rgba(0,0,0,.22); display:none; z-index:20; max-height:calc(100vh - 60px); overflow:auto; }
-  #settings.open { display:block; }
-  #settings label { display:block; margin:10px 0 3px; color:var(--mute); font-size:12.5px; }
-  #settings input[type=text], #settings input[type=password] { width:100%; padding:7px 8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:6px; }
-  #settings .opt { display:flex; gap:14px; margin:4px 0; flex-wrap:wrap; } #settings .opt label { margin:0; color:var(--fg); }
-  #settings pre { background:var(--code); padding:8px 10px; border-radius:6px; white-space:pre-wrap; margin:8px 0 0; font-size:12.5px; }
+  dialog { border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--fg); padding:0; width:min(560px, calc(100vw - 24px)); box-shadow:0 12px 40px rgba(0,0,0,.28); }
+  dialog::backdrop { background:rgba(0,0,0,.35); }
+  dialog form, dialog .body { padding:16px 18px 14px; }
+  dialog h2 { font-size:16px; margin:0 0 2px; display:flex; align-items:center; gap:8px; }
+  dialog .lead { color:var(--mute); margin:0 0 8px; font-size:13px; }
+  dialog h3 { font-size:12px; text-transform:uppercase; letter-spacing:.07em; color:var(--mute); margin:16px 0 4px; }
+  dialog label { display:block; margin:9px 0 3px; color:var(--mute); font-size:12.5px; }
+  dialog input[type=text], dialog input[type=password], dialog input[type=number] { width:100%; padding:7px 8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:6px; }
+  dialog .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  dialog .row.end { justify-content:flex-end; margin-top:14px; }
+  dialog label.chk { display:flex; gap:8px; align-items:flex-start; color:var(--fg); margin:7px 0; }
+  dialog .hint { color:var(--mute); font-size:12px; margin:2px 0 0; }
+  dialog .out { background:var(--code); padding:8px 10px; border-radius:6px; white-space:pre-wrap; margin:8px 0 0; font-size:12.5px; min-height:2.2em; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; } .chips .btn { padding:4px 9px; font-size:12.5px; }
   .ok { color:var(--accent); } .bad { color:var(--bad); } .mute { color:var(--mute); }
 
-  #toggleSide { display:none; }
   @media (max-width:760px) {
     #toggleSide { display:inline-flex; }
-    aside#side { position:absolute; z-index:10; top:0; bottom:0; left:0; width:80vw !important; flex-basis:auto; box-shadow:4px 0 20px rgba(0,0,0,.2); transform:translateX(-102%); transition:transform .15s; }
+    aside#side { position:absolute; z-index:10; top:0; bottom:0; left:0; width:82vw !important; flex-basis:auto; box-shadow:4px 0 20px rgba(0,0,0,.2); transform:translateX(-102%); transition:transform .15s; }
     body.side-open aside#side { transform:none; } .vgut { display:none; } header .sub { display:none; }
   }
 </style>
 </head>
 <body>
 <header>
-  <button class="btn icon" id="toggleSide" aria-label="Toggle table list" title="Tables">☰</button>
-  <h1>jev_pii studio</h1>
+  <button class="btn sq" id="toggleSide" aria-label="Show tables" title="Tables"><iconify-icon icon="lucide:panel-left"></iconify-icon></button>
+  <h1><iconify-icon icon="lucide:database-zap" style="color:var(--accent);font-size:19px"></iconify-icon> jev_pii studio</h1>
   <span class="sub">DuckDB + Python in your browser · typed PII and compliance answers from TypeSafe Jev</span>
   <div class="right">
-    <span class="pill" id="modePill">loading…</span>
-    <button class="btn" id="openSettings" aria-expanded="false" aria-controls="settings">Settings</button>
+    <span class="pill" id="modePill"><iconify-icon icon="lucide:loader-circle"></iconify-icon> starting…</span>
+    <button class="btn" id="openSettings"><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</button>
   </div>
 </header>
 
-<section id="settings" aria-label="Connection settings">
-  <div class="opt">
-    <label><input type="radio" name="mode" value="mock" checked> Mock <span class="mute">(keyword heuristic, not accurate)</span></label>
-    <label><input type="radio" name="mode" value="live"> Live Jev</label>
-  </div>
-  <label for="url">Endpoint</label>
-  <input id="url" type="text" value="https://api.typesafe.ai/v1/systemone" spellcheck="false">
-  <label for="key">TypeSafe API key <span class="mute">(live mode; held in this tab's memory, sent only to the endpoint)</span></label>
-  <input id="key" type="password" autocomplete="off" placeholder="sk-…">
-  <label for="secret">Proxy secret <span class="mute">(only if your proxy holds the key; leave the key empty)</span></label>
-  <input id="secret" type="password" autocomplete="off" placeholder="PROXY_SECRET">
-  <div style="display:flex; gap:8px; margin-top:12px">
-    <button class="btn run" id="apply">Apply</button>
-    <button class="btn" id="probe">CORS check</button>
-  </div>
-  <pre id="probeOut">The Jev API does not allow browser origins yet. Use a jev-proxy endpoint (github.com/senthilsweb/jev-pii/tree/main/proxy), e.g. ?endpoint=https://your-proxy/v1/systemone</pre>
-</section>
-
 <div id="app">
   <aside id="side">
-    <div class="head"><span>Tables</span><button class="btn icon" id="refresh" title="Refresh list" style="padding:1px 7px">↻</button></div>
-    <div id="tree"><div class="fn">starting Python + DuckDB…</div></div>
+    <div class="head"><span>Data</span>
+      <span class="grp">
+        <button class="btn tiny" id="addData" title="Add data (URL, Hugging Face, or a file)"><iconify-icon icon="lucide:plus"></iconify-icon></button>
+        <button class="btn tiny" id="refresh" title="Refresh"><iconify-icon icon="lucide:refresh-cw"></iconify-icon></button>
+      </span></div>
+    <div id="tree"><div class="empty">starting Python + DuckDB…</div></div>
+    <div id="fns">
+      <div class="head"><span>AI functions</span></div>
+      <button data-snip="SELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;"><span class="mono sig">jev_pii(table, column, samples)</span><span class="d">typed struct: sensitive, category, regimes…</span></button>
+      <button data-snip="SELECT policy_action('PERSON_NAME', 0.9) AS action;"><span class="mono sig">policy_action(category, sensitive)</span><span class="d">keep / mask / hash / drop / review</span></button>
+    </div>
   </aside>
   <div class="vgut" id="vgut" title="Drag to resize · double-click to reset"></div>
   <main>
     <div class="bar">
-      <button class="btn run" id="run" disabled title="Run (Cmd/Ctrl+Enter). Runs the selection if there is one.">▶ Run</button>
-      <button class="btn" id="clear">Clear</button>
+      <button class="btn run" id="run" disabled title="Run (Cmd/Ctrl+Enter). Runs the selection if there is one."><iconify-icon icon="lucide:play"></iconify-icon> Run</button>
+      <button class="btn" id="clear" title="Clear editor and results"><iconify-icon icon="lucide:eraser"></iconify-icon> Clear</button>
       <select id="examples" aria-label="Example queries"><option value="">Examples…</option></select>
-      <button class="btn" id="silver" title="Create a masked silver_&lt;table&gt; view for every table, driven by column_catalog">Apply policy → silver views</button>
+      <button class="btn sq" id="copyCsv" title="Copy results as CSV"><iconify-icon icon="lucide:copy"></iconify-icon></button>
       <span class="meta" id="meta"></span>
     </div>
+    <div id="prog"><i></i></div>
     <div id="edwrap"><textarea id="sql"></textarea></div>
     <div class="hgut" id="hgut" title="Drag to resize · double-click to reset"></div>
-    <div id="results"><div class="empty">Run a query. Try the Examples menu, in order.</div></div>
+    <div id="results"><div class="empty">Run a query, or add data with <b>+</b> in the sidebar.</div></div>
     <footer><span class="grow" id="foot">Regimes are an engineering signal, not legal advice.</span><span id="cl">client: –</span></footer>
   </main>
 </div>
+
+<!-- Add data -->
+<dialog id="addDlg">
+  <div class="body">
+    <h2><iconify-icon icon="lucide:database"></iconify-icon> Add data</h2>
+    <p class="lead">CSV, Parquet or JSON from a URL, a Hugging Face dataset, or a file from your computer. It is fetched by your browser and kept in memory; nothing is uploaded anywhere.</p>
+    <label for="addUrl">URL</label>
+    <input id="addUrl" type="text" spellcheck="false" placeholder="https://… or hf://datasets/org/name/file.csv">
+    <label for="addName">Table name <span class="mute">(optional)</span></label>
+    <input id="addName" type="text" spellcheck="false" placeholder="derived from the file name">
+    <div class="row"><button class="btn run" id="addGo"><iconify-icon icon="lucide:download"></iconify-icon> Add from URL</button>
+      <span class="mute">or</span>
+      <label class="btn" style="margin:0"><iconify-icon icon="lucide:file-up"></iconify-icon> Choose a file<input id="addFile" type="file" accept=".csv,.tsv,.parquet,.json,.jsonl,.ndjson" hidden></label></div>
+    <h3>Try a sample</h3>
+    <div class="chips" id="samples"></div>
+    <p class="hint">The host must allow browser access (CORS). GitHub raw files, GitHub Pages and Hugging Face do.</p>
+    <div class="out" id="addOut"></div>
+    <div class="row end"><button class="btn" id="addClose">Close</button></div>
+  </div>
+</dialog>
+
+<!-- Settings -->
+<dialog id="setDlg">
+  <div class="body">
+    <h2><iconify-icon icon="lucide:settings-2"></iconify-icon> Settings</h2>
+    <p class="lead">How the <code>jev_pii()</code> function reaches Jev.</p>
+    <h3>Connection</h3>
+    <div class="chips" style="margin-bottom:4px">
+      <label class="btn" style="margin:0"><input type="radio" name="mode" value="mock" checked> Mock</label>
+      <label class="btn" style="margin:0"><input type="radio" name="mode" value="live"> Live Jev</label>
+      <span class="mute" style="font-size:12px">Mock is a keyword heuristic (not accurate), for trying the interface.</span>
+    </div>
+    <label for="setUrl">Endpoint</label>
+    <input id="setUrl" type="text" spellcheck="false">
+    <div class="chips" style="margin-top:6px">
+      <button class="btn" data-preset="https://jev-proxy-senthil.fly.dev/v1/systemone">jev-proxy (Fly.io)</button>
+      <button class="btn" data-preset="https://api.typesafe.ai/v1/systemone">TypeSafe direct</button>
+    </div>
+    <p class="hint">TypeSafe does not allow browser origins yet, so use a <a href="https://github.com/senthilsweb/jev-pii/tree/main/proxy">jev-proxy</a> endpoint (or your own).</p>
+    <label for="setModel">Model</label>
+    <input id="setModel" type="text" spellcheck="false" placeholder="jev-1.14.0">
+    <label for="setKey">TypeSafe API key <span class="mute">(sent as <code>Authorization: Bearer</code>; always overrides the proxy's own key)</span></label>
+    <input id="setKey" type="password" autocomplete="off" placeholder="sk-…">
+    <label for="setSecret">Proxy secret <span class="mute">(sent as <code>X-Proxy-Secret</code>; use this when the proxy holds the key)</span></label>
+    <input id="setSecret" type="password" autocomplete="off" placeholder="PROXY_SECRET">
+    <label class="chk"><input type="checkbox" id="setRemember"> <span>Remember the key and secret on this device<br><span class="mute">Stored in this browser's localStorage, readable by scripts on this site. Off by default.</span></span></label>
+    <h3>Discovery</h3>
+    <label for="setN">Sample values per column</label>
+    <input id="setN" type="number" min="5" max="100" value="20">
+    <label class="chk"><input type="checkbox" id="setRedact"> <span>Send value shapes only, not values<br><span class="mute">Digits become 9, letters become a or A, so <code>(257)667-2991</code> is sent as <code>(999)999-9999</code>.</span></span></label>
+    <div class="out" id="setOut">Not tested yet.</div>
+    <div class="row end">
+      <button class="btn" id="setTest"><iconify-icon icon="lucide:plug-zap"></iconify-icon> Test connection</button>
+      <button class="btn" id="setClose">Close</button>
+      <button class="btn run" id="setSave"><iconify-icon icon="lucide:check"></iconify-icon> Apply</button>
+    </div>
+  </div>
+</dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/sql/sql.js"></script>
@@ -160,118 +222,99 @@
 <script type="module">
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
-
+const ic = (n) => `<iconify-icon icon="lucide:${n}"></iconify-icon>`;
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
+  del: (k) => { try { localStorage.removeItem(k); } catch {} },
+};
+const DEFAULT_ENDPOINT = 'https://jev-proxy-senthil.fly.dev/v1/systemone';
+const CW = 'https://raw.githubusercontent.com/senthilsweb/claimwise/main/dbt-pipeline/seeds/healthcare_data/';
+const JOBS = 'https://raw.githubusercontent.com/senthilsweb/ai-agents/main/agents/job-scout/data/ats_raw_trends.parquet';
+const SAMPLES = [
+  ['users', CW + 'users.csv', 'Claimwise · users (1,600 rows, names, DOB, phones)'],
+  ['encounters', CW + 'encounters.csv', 'Claimwise · encounters (8,000)'],
+  ['claims', CW + 'claims.csv', 'Claimwise · claims (5,000)'],
+  ['facilities', CW + 'facilities.csv', 'Claimwise · facilities (12, business contacts)'],
+  ['job_postings', JOBS, 'job-scout · hiring data (9,300, Parquet)'],
+];
 const EXAMPLES = {
-  '1 · Look at the column samples': `-- one row per column: 20 random distinct values, from the three bronze tables
-SELECT table_name, column_name, n_distinct, samples
-FROM column_samples
-ORDER BY table_name, ordinal;`,
-  '2 · Ask Jev about one column': `-- jev_pii() is a Python function attached to DuckDB; it returns a typed struct
-SELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;`,
-  '3 · Ask Jev about every column': `-- one call per column; every typed answer becomes a catalog column
-CREATE OR REPLACE TABLE column_catalog AS
-SELECT table_name, column_name, ordinal, r.*, policy_action(r.category, r.sensitive) AS action
-FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_samples);
-
-SELECT table_name, column_name, category, round(sensitive, 2) AS sensitive,
-       round(category_conf, 2) AS conf, runner_up, action
-FROM column_catalog ORDER BY table_name, ordinal;`,
-  '4 · Same column name, different verdict': `-- needs example 3 first: a person's phone vs a business line
-SELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, action
-FROM column_catalog WHERE column_name = 'contactInfo';`,
-  '5 · Which regimes apply?': `-- needs example 3 first; each regime is its own 0..1 answer (assumption stated in the question)
-SELECT table_name, column_name, category, round(regime_gdpr, 2) AS gdpr, round(regime_ccpa_cpra, 2) AS ccpa,
-       round(regime_hipaa, 2) AS hipaa, action
-FROM column_catalog WHERE action <> 'keep' ORDER BY table_name, ordinal;`,
-  '6 · Masked silver view': `-- needs example 3, then the "Apply policy" button: mask / hash / drop by catalog action
-SELECT * FROM silver_users;`,
+  'Query a remote CSV': `SELECT * FROM '${CW}users.csv' LIMIT 20;`,
+  'Query a remote Parquet': `SELECT company_name, count(*) AS openings\nFROM '${JOBS}'\nGROUP BY 1 ORDER BY 2 DESC LIMIT 10;`,
+  'Query a Hugging Face dataset': `SELECT column_name, output AS pii_label\nFROM 'hf://datasets/trl-lab/contextual-sensitive-data/train_data_personal.csv'\nLIMIT 20;`,
+  'Ask Jev about one column': `-- jev_pii() is a Python function attached to DuckDB; it returns a typed struct\nSELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;`,
+  'Read the PII catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
+  'Columns that need action': `SELECT table_name, column_name, category, action, regimes\nFROM pii_catalog WHERE action <> 'keep' ORDER BY table_name, ordinal;`,
 };
 
-// ---- editor ---------------------------------------------------------------
+// ---- worker -----------------------------------------------------------------
+const worker = new Worker('studio-worker.js', { type: 'module' });
+let seq = 0; const pending = new Map();
+worker.onmessage = (e) => {
+  const m = e.data;
+  if (m.status) { $('foot').textContent = m.status; return; }
+  const p = pending.get(m.id); if (!p) return;
+  if (m.progress) { p.onProgress?.(m.progress); return; }
+  pending.delete(m.id); m.ok ? p.resolve(m.result) : p.reject(new Error(m.error));
+};
+worker.onerror = (e) => { $('tree').innerHTML = `<div class="empty bad">The worker failed to start: ${esc(e.message || 'see console')}</div>`; };
+const send = (cmd, args = {}, transfer = [], onProgress) => new Promise((resolve, reject) => {
+  const id = ++seq; pending.set(id, { resolve, reject, onProgress }); worker.postMessage({ id, cmd, ...args }, transfer);
+});
+
+// ---- editor -----------------------------------------------------------------
 const cm = CodeMirror.fromTextArea($('sql'), { mode: 'text/x-sql', lineNumbers: true, matchBrackets: true, styleActiveLine: true, indentUnit: 2,
   extraKeys: { 'Cmd-Enter': () => run(), 'Ctrl-Enter': () => run() } });
-cm.setValue(EXAMPLES['1 · Look at the column samples']);
+const qUrl = new URLSearchParams(location.search).get('url');
+cm.setValue(qUrl && /^(https?|hf):\/\//.test(qUrl) ? `SELECT * FROM '${qUrl}' LIMIT 100;`
+  : `-- 1. Add data with + in the sidebar (URL, Hugging Face, or a file), or query a URL directly:\nSELECT * FROM '${CW}users.csv' LIMIT 20;\n\n-- 2. Click the scan icon next to a table to discover its PII (Settings → Live for real Jev answers).`);
 for (const k of Object.keys(EXAMPLES)) $('examples').add(new Option(k, k));
 $('examples').onchange = (e) => { if (e.target.value) { cm.setValue(EXAMPLES[e.target.value]); cm.focus(); } e.target.value = ''; };
-$('clear').onclick = () => { cm.setValue(''); $('results').innerHTML = '<div class="empty">Cleared.</div>'; $('meta').textContent = ''; cm.focus(); };
+$('clear').onclick = () => { cm.setValue(''); $('results').innerHTML = '<div class="empty">Cleared.</div>'; $('meta').textContent = ''; lastResult = null; cm.focus(); };
 
-// ---- resizers -------------------------------------------------------------
 function dragger(el, axis, apply, reset) {
   const down = (e) => {
     e.preventDefault(); el.classList.add('dragging'); document.body.classList.add('resizing');
     const move = (ev) => { const p = ev.touches ? ev.touches[0] : ev; apply(axis === 'x' ? p.clientX : p.clientY); };
-    const ev = [['mousemove', move], ['touchmove', move], ['mouseup', null], ['touchend', null]];
-    const up = () => { el.classList.remove('dragging'); document.body.classList.remove('resizing');
-      for (const [n, f] of ev) window.removeEventListener(n, f || up); cm.refresh(); };
-    for (const [n, f] of ev) window.addEventListener(n, f || up, { passive: false });
+    const evs = [['mousemove', move], ['touchmove', move], ['mouseup', null], ['touchend', null]];
+    const up = () => { el.classList.remove('dragging'); document.body.classList.remove('resizing'); for (const [n, f] of evs) window.removeEventListener(n, f || up); cm.refresh(); };
+    for (const [n, f] of evs) window.addEventListener(n, f || up, { passive: false });
   };
   el.addEventListener('mousedown', down); el.addEventListener('touchstart', down, { passive: false }); el.addEventListener('dblclick', reset);
 }
 const root = document.documentElement.style;
-const sbw0 = store.get('jev.sbw'), edh0 = store.get('jev.edh');
-if (sbw0) root.setProperty('--sbw', sbw0 + 'px');
-if (edh0) root.setProperty('--edh', edh0 + 'px');
-dragger($('vgut'), 'x', (x) => { const w = Math.max(150, Math.min(x, innerWidth * 0.6)); root.setProperty('--sbw', w + 'px'); store.set('jev.sbw', Math.round(w)); },
-  () => { root.removeProperty('--sbw'); store.set('jev.sbw', ''); });
+if (store.get('jev.sbw')) root.setProperty('--sbw', store.get('jev.sbw') + 'px');
+if (store.get('jev.edh')) root.setProperty('--edh', store.get('jev.edh') + 'px');
+dragger($('vgut'), 'x', (x) => { const w = Math.max(170, Math.min(x, innerWidth * 0.6)); root.setProperty('--sbw', w + 'px'); store.set('jev.sbw', Math.round(w)); },
+  () => { root.removeProperty('--sbw'); store.del('jev.sbw'); });
 dragger($('hgut'), 'y', (y) => { const top = $('edwrap').getBoundingClientRect().top; const h = Math.max(70, Math.min(y - top, innerHeight * 0.7)); root.setProperty('--edh', h + 'px'); store.set('jev.edh', Math.round(h)); },
-  () => { root.removeProperty('--edh'); store.set('jev.edh', ''); });
+  () => { root.removeProperty('--edh'); store.del('jev.edh'); });
 $('toggleSide').onclick = () => document.body.classList.toggle('side-open');
 
-// ---- python / duckdb ------------------------------------------------------
-const BOOT = `
-import json, time, duckdb
-from jev_pii import MockJev, JevClient, register
-from jev_pii.catalog import sample_columns, build_silver
+// ---- remote data: fetch in the browser, hand the bytes to DuckDB's in-memory filesystem ---
+const urlCache = new Map(); let fileN = 0;
+const toHttp = (u) => u.replace(/^hf:\/\/(datasets|spaces)\/([^/]+)\/([^/]+)\/(.+)$/, (_, k, o, n, p) => `https://huggingface.co/${k}/${o}/${n}/resolve/main/${p}`);
+const extOf = (u) => (new URL(toHttp(u)).pathname.match(/\.(parquet|csv|tsv|jsonl|ndjson|json|txt)$/i) || [0, 'csv'])[1].toLowerCase();
+async function fetchInto(u) {
+  if (urlCache.has(u)) return urlCache.get(u);
+  let r;
+  try { r = await fetch(toHttp(u)); } catch { throw new Error(`Could not fetch ${u}\nThe host may not allow browser access (CORS), or is unreachable.`); }
+  if (!r.ok) throw new Error(`HTTP ${r.status} fetching ${u}`);
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  const path = `/data/f${++fileN}.${extOf(u)}`;
+  await send('write_file', { path, bytes }, [bytes.buffer]);
+  urlCache.set(u, path); return path;
+}
+async function resolveUrls(sql) {
+  const found = [...new Set([...sql.matchAll(/'((?:https?|hf):\/\/[^'\s]+)'/g)].map((m) => m[1]))];
+  for (const u of found) { $('meta').textContent = `fetching ${u.split('/').pop()}…`; sql = sql.split(`'${u}'`).join(`'${await fetchInto(u)}'`); }
+  return sql;
+}
 
-con = duckdb.connect()
-con.execute("""CREATE TABLE users AS SELECT * FROM (VALUES
- ('Allison Hill','1965-02-10','321.581.9600','Cardiology'),
- ('Kristina Baldwin','1994-10-27','(486) 537-9402','Pediatrics'),
- ('Brandon Davis','1984-06-17','(794) 507-8161','Oncology'),
- ('Maria Gomez','1979-03-02','555-010-4477','Radiology')) t(name, dateOfBirth, contactInfo, specialty)""")
-con.execute("""CREATE TABLE facilities AS SELECT * FROM (VALUES
- ('Collins Inc Hospital','998 Samantha Crossroad Suite 731','688.480.4851'),
- ('Thomas PLC Urgent Care','4502 Kristen Freeway','(257) 667-2991'),
- ('Lake County Clinic','17 Pine Street','555-010-9000')) t(name, location, contactInfo)""")
-con.execute("""CREATE TABLE claims AS SELECT * FROM (VALUES
- (1146,'Submitted',2531.80),(559,'In Review',115.08),(2201,'Paid',880.00),(318,'Denied',64.25)) t(patientID, status, amount)""")
-BRONZE = ['users', 'facilities', 'claims']
-sample_columns(con, BRONZE)
-_c = {}
-
-def set_client(mode, key, url, secret):
-    c = MockJev() if mode == 'mock' else JevClient(key or None, api_url=url, proxy_secret=secret or None, cache_dir=None, timeout=60)
-    register(con, c); _c['c'] = c
-    return c.name
-
-def run_sql(sql):
-    t = time.time()
-    try:
-        cur = con.execute(sql)
-        if cur.description is None:
-            return json.dumps({'ok': True, 'cols': [], 'rows': [], 'ms': round((time.time() - t) * 1000)})
-        rows = cur.fetchmany(1001)
-        return json.dumps({'ok': True, 'cols': [d[0] for d in cur.description], 'rows': rows[:1000], 'more': len(rows) > 1000,
-                           'ms': round((time.time() - t) * 1000), 'calls': getattr(_c['c'], 'calls', 0)}, default=str)
-    except Exception as e:
-        return json.dumps({'ok': False, 'error': str(e)})
-
-def tree():
-    rows = con.execute("""SELECT t.table_name, t.table_type, c.column_name, c.data_type
-        FROM information_schema.tables t JOIN information_schema.columns c USING (table_schema, table_name)
-        WHERE t.table_schema = 'main' ORDER BY t.table_name, c.ordinal_position""").fetchall()
-    return json.dumps(rows)
-
-def apply_policy():
-    have = {r[0] for r in con.execute("SELECT DISTINCT table_name FROM column_catalog").fetchall()}
-    done = [t for t in BRONZE if t in have]
-    build_silver(con, done)
-    return json.dumps(done)
-`;
-let py, ready = false;
-
+// ---- results ----------------------------------------------------------------
+let lastResult = null, busy = false, ready = false;
 function showResult(r) {
+  lastResult = r.ok ? r : null;
   if (!r.ok) { $('results').innerHTML = `<div class="err">${esc(r.error)}</div>`; $('meta').textContent = ''; return; }
   if (!r.cols.length) { $('results').innerHTML = '<div class="empty">OK (no result set)</div>'; $('meta').textContent = `${r.ms} ms`; return; }
   const ai = r.cols.indexOf('action');
@@ -281,90 +324,174 @@ function showResult(r) {
     const t = typeof v === 'object' ? JSON.stringify(v) : v;
     return `<td${i === ai ? ` class="a-${esc(v)}"` : ''} title="${esc(t)}">${esc(t)}</td>`;
   };
-  $('results').innerHTML = '<table><tr>' + r.cols.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr>' +
-    r.rows.map((row) => '<tr>' + row.map(cell).join('') + '</tr>').join('') + '</table>';
-  $('meta').textContent = `${r.rows.length}${r.more ? '+' : ''} rows · ${r.ms} ms${r.calls ? ` · ${r.calls} Jev calls` : ''}`;
+  $('results').innerHTML = '<table><tr>' + r.cols.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr>' + r.rows.map((row) => '<tr>' + row.map(cell).join('') + '</tr>').join('') + '</table>';
+  $('meta').textContent = `${r.rows.length}${r.more ? '+' : ''} rows · ${r.ms} ms`;
 }
+$('copyCsv').onclick = async () => {
+  if (!lastResult) return;
+  const q = (v) => (v === null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replaceAll('"', '""')}"` : String(v));
+  const csv = [lastResult.cols.map(q).join(','), ...lastResult.rows.map((r) => r.map((v) => q(typeof v === 'object' && v !== null ? JSON.stringify(v) : v)).join(','))].join('\n');
+  try { await navigator.clipboard.writeText(csv); $('meta').textContent = 'copied CSV'; } catch { $('meta').textContent = 'copy blocked by the browser'; }
+};
+const setBusy = (b, label) => { busy = b; $('run').disabled = b || !ready; if (label !== undefined) $('meta').textContent = label; };
+const fail = (e) => { $('results').innerHTML = `<div class="err">${esc(e.message || e)}</div>`; $('meta').textContent = ''; };
 
-function refreshTree() {
-  const rows = JSON.parse(py.runPython('tree()'));
+async function run(sqlOverride) {
+  if (!ready || busy) return;
+  const sql = (sqlOverride ?? (cm.getSelection() || cm.getValue())).trim();
+  if (!sql) return;
+  setBusy(true, 'running…');
+  try { showResult(JSON.parse(await send('run_sql', { sql: await resolveUrls(sql) }))); await refreshTree(); }
+  catch (e) { fail(e); } finally { setBusy(false); }
+}
+$('run').onclick = () => run();
+
+// ---- sidebar tree -------------------------------------------------------------
+const typeIcon = (t) => /INT|DOUBLE|FLOAT|DECIMAL|BIGINT|HUGEINT|REAL/i.test(t) ? 'hash' : /DATE|TIME/i.test(t) ? 'calendar' : /BOOL/i.test(t) ? 'toggle-left' : /\[\]|STRUCT|MAP|JSON/i.test(t) ? 'braces' : 'type';
+async function refreshTree() {
+  const rows = JSON.parse(await send('tree'));
   const by = new Map();
   for (const [t, kind, c, typ] of rows) { if (!by.has(t)) by.set(t, { kind, cols: [] }); by.get(t).cols.push([c, typ]); }
   const open = new Set([...document.querySelectorAll('#tree details[open]')].map((d) => d.dataset.t));
-  $('tree').innerHTML = [...by].map(([t, v]) => `<details data-t="${esc(t)}"${open.has(t) ? ' open' : ''}>
-    <summary><span class="tname">${esc(t)}</span><button class="peek" data-peek="${esc(t)}" title="SELECT * FROM ${esc(t)}">▶</button><span class="kind">${v.kind === 'VIEW' ? 'view' : 'table'}</span></summary>
-    ${v.cols.map(([c, typ]) => `<div class="col" data-col="${esc(c)}"><span>${esc(c)}</span><span class="t">${esc(typ)}</span></div>`).join('')}</details>`).join('') +
-    '<div class="fn">functions:<br><code>jev_pii(table, column, samples)</code><br><code>policy_action(category, sensitive)</code></div>';
+  if (!by.size) { $('tree').innerHTML = `<div class="empty">No tables yet.<br>Use <b>+</b> to add a CSV, Parquet or Hugging Face file, or try a sample.</div>`; return; }
+  $('tree').innerHTML = [...by].map(([t, v]) => {
+    const isTable = v.kind !== 'VIEW', isCatalog = t === 'pii_catalog' || t.startsWith('silver_');
+    return `<details data-t="${esc(t)}"${open.has(t) ? ' open' : ''}>
+      <summary><span class="chev">${ic('chevron-right')}</span>${ic(isTable ? 'table-2' : 'eye')}<span class="tname">${esc(t)}</span>
+        <span class="kind">${isTable ? 'table' : 'view'}</span>
+        <span class="acts">
+          <button class="btn tiny" data-act="peek" data-t="${esc(t)}" title="SELECT * FROM ${esc(t)}">${ic('play')}</button>
+          ${isCatalog ? '' : `<button class="btn tiny" data-act="discover" data-t="${esc(t)}" title="Discover PII in ${esc(t)}">${ic('scan-search')}</button>
+          <button class="btn tiny" data-act="mask" data-t="${esc(t)}" title="Create a masked view silver_${esc(t)} (after Discover)">${ic('venetian-mask')}</button>`}
+          <button class="btn tiny" data-act="drop" data-t="${esc(t)}" title="Drop ${esc(t)}">${ic('trash-2')}</button>
+        </span></summary>
+      ${v.cols.map(([c, typ]) => `<div class="col" data-col="${esc(c)}">${ic(typeIcon(typ))}<span>${esc(c)}</span><span class="t">${esc(typ)}</span></div>`).join('')}</details>`;
+  }).join('');
 }
-$('tree').onclick = (e) => {
-  const peek = e.target.closest('[data-peek]'); const col = e.target.closest('[data-col]');
-  if (peek) { e.preventDefault(); cm.setValue(`SELECT * FROM ${peek.dataset.peek} LIMIT 100;`); run(); }
-  else if (col) { cm.replaceSelection(/^\w+$/.test(col.dataset.col) ? col.dataset.col : `"${col.dataset.col}"`); cm.focus(); }
-};
 $('refresh').onclick = () => ready && refreshTree();
-
-async function run() {
-  if (!ready || $('run').disabled) return;
-  const sql = (cm.getSelection() || cm.getValue()).trim();
-  if (!sql) return;
-  $('run').disabled = true; $('meta').textContent = 'running… (the page pauses while Python works)';
-  await new Promise((r) => setTimeout(r, 40));   // let the paint happen: Python blocks the page while it works
-  try { showResult(JSON.parse(py.globals.get('run_sql')(sql))); refreshTree(); }
-  finally { $('run').disabled = false; }
-}
-$('run').onclick = run;
-$('silver').onclick = () => {
-  if (!ready) return;
-  try { const done = JSON.parse(py.runPython('apply_policy()')); $('results').innerHTML = `<div class="empty">Created silver views for: ${done.map(esc).join(', ') || 'nothing'}. Query <code>silver_users</code>.</div>`; refreshTree(); }
-  catch (e) { $('results').innerHTML = `<div class="err">Run example 3 first (it creates column_catalog).\n\n${esc(String(e.message || e).split('\n').slice(-3).join('\n'))}</div>`; }
+$('tree').onclick = async (e) => {
+  const act = e.target.closest('[data-act]'); const col = e.target.closest('[data-col]');
+  if (act) {
+    e.preventDefault(); const t = act.dataset.t;
+    if (act.dataset.act === 'peek') { cm.setValue(`SELECT * FROM "${t}" LIMIT 100;`); run(); }
+    if (act.dataset.act === 'discover') discoverTable(t);
+    if (act.dataset.act === 'mask') maskTable(t);
+    if (act.dataset.act === 'drop') { try { await send('drop', { name: t }); await refreshTree(); } catch (err) { fail(err); } }
+  } else if (col) { cm.replaceSelection(/^\w+$/.test(col.dataset.col) ? col.dataset.col : `"${col.dataset.col}"`); cm.focus(); }
 };
+$('fns').onclick = (e) => { const b = e.target.closest('[data-snip]'); if (b) { cm.setValue(b.dataset.snip); cm.focus(); } };
 
-// ---- settings --------------------------------------------------------------
-const ep = new URLSearchParams(location.search).get('endpoint');
-if (ep && /^https?:\/\//.test(ep)) $('url').value = ep;
-$('openSettings').onclick = () => { const o = $('settings').classList.toggle('open'); $('openSettings').setAttribute('aria-expanded', o); };
-$('apply').onclick = () => {
-  const mode = document.querySelector('input[name=mode]:checked').value;
-  if (mode === 'live' && !$('key').value.trim() && !$('secret').value.trim()) { $('probeOut').textContent = 'Live mode needs a key or a proxy secret.'; return; }
-  const name = py.globals.get('set_client')(mode, $('key').value.trim(), $('url').value.trim(), $('secret').value.trim());
-  $('modePill').textContent = name === 'mock' ? 'mock client' : 'live · Jev'; $('modePill').className = 'pill' + (name === 'mock' ? '' : ' live');
-  $('cl').textContent = `client: ${name}`; $('settings').classList.remove('open');
-};
-$('probe').onclick = async () => {
-  $('probeOut').textContent = `from ${location.origin} → ${$('url').value}\nsending…`;
+async function discoverTable(t) {
+  if (!ready || busy) return;
+  setBusy(true, 'asking Jev…'); $('prog').firstElementChild.style.width = '2%';
   try {
-    const r = await fetch($('url').value, { method: 'POST', headers: { Authorization: 'Bearer dummy-not-a-real-key', 'Content-Type': 'application/json' }, body: '{}' });
-    $('probeOut').innerHTML = `<span class="ok">Reachable.</span> The browser allowed the call; the API answered HTTP ${r.status} (expected, the key is a dummy).`;
-  } catch (e) {
-    // A no-cors request is never blocked by CORS: if it also fails, the host is unreachable (DNS, offline, TLS).
-    let reachable = true;
-    try { await fetch($('url').value, { mode: 'no-cors' }); } catch { reachable = false; }
-    $('probeOut').innerHTML = reachable
-      ? `<span class="bad">Blocked by CORS.</span> ${esc(e.message)}\nThe host is reachable but does not allow ${esc(location.origin)}. Use a jev-proxy endpoint.`
-      : `<span class="bad">Cannot reach the host.</span> ${esc(e.message)}\nThis is a network problem (DNS, offline or TLS), not CORS. A brand-new hostname can take a few minutes to resolve on some networks.`;
-  }
+    const r = JSON.parse(await send('discover', { table: t, n: settings.n }, [], (p) => {
+      $('prog').firstElementChild.style.width = Math.round((100 * p.done) / p.total) + '%'; $('meta').textContent = `Jev ${p.done}/${p.total} · ${p.col}`; }));
+    cm.setValue(`SELECT column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog WHERE table_name = '${t}' ORDER BY ordinal;`);
+    showResult(JSON.parse(await send('run_sql', { sql: cm.getValue() })));
+    $('meta').textContent += ` · ${r.columns} columns${r.calls ? ` · ${r.calls} Jev calls` : ` · ${r.client} client`}`;
+    await refreshTree();
+  } catch (e) { fail(e); } finally { $('prog').firstElementChild.style.width = '0'; setBusy(false); }
+}
+async function maskTable(t) {
+  if (!ready || busy) return;
+  setBusy(true, 'masking…');
+  let view = null;
+  try { view = await send('mask', { table: t }); cm.setValue(`SELECT * FROM ${view} LIMIT 100;`); await refreshTree(); }
+  catch (e) { fail(e); } finally { setBusy(false, ''); }
+  if (view) run();
+}
+
+// ---- add data -------------------------------------------------------------------
+const tableName = (s) => { let n = s.replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'data'; return /^\d/.test(n) ? 't_' + n : n; };
+async function addTable(name, source, label) {
+  if (!ready || busy) return;
+  const out = $('addOut'); out.textContent = `loading ${label}…`; setBusy(true, 'loading…'); let added = false;
+  try {
+    const sql = await resolveUrls(`CREATE OR REPLACE TABLE "${name}" AS SELECT * FROM '${source}'`);
+    const r = JSON.parse(await send('run_sql', { sql }));
+    if (!r.ok) throw new Error(r.error);
+    const n = JSON.parse(await send('run_sql', { sql: `SELECT count(*) FROM "${name}"` })).rows[0][0];
+    out.innerHTML = `<span class="ok">Added</span> <b>${esc(name)}</b> (${n.toLocaleString()} rows). Click ${ic('scan-search')} next to it in the sidebar to discover its PII.`;
+    cm.setValue(`SELECT * FROM "${name}" LIMIT 100;`); await refreshTree(); added = true;
+  } catch (e) { out.innerHTML = `<span class="bad">${esc(e.message)}</span>`; } finally { setBusy(false, ''); }
+  if (added) run();
+}
+$('samples').innerHTML = SAMPLES.map(([n, , label], i) => `<button class="btn" data-i="${i}">${ic('plus')} ${esc(label)}</button>`).join('');
+$('samples').onclick = (e) => { const b = e.target.closest('[data-i]'); if (b) { const [n, u, l] = SAMPLES[b.dataset.i]; addTable(n, u, l); } };
+$('addData').onclick = () => { $('addOut').textContent = ''; $('addDlg').showModal(); };
+$('addClose').onclick = () => $('addDlg').close();
+$('addGo').onclick = () => {
+  const u = $('addUrl').value.trim();
+  if (!/^(https?|hf):\/\//.test(u)) { $('addOut').innerHTML = '<span class="bad">Enter an https:// or hf:// URL.</span>'; return; }
+  addTable($('addName').value.trim() ? tableName($('addName').value) : tableName(new URL(toHttp(u)).pathname.split('/').pop()), u, u.split('/').pop());
+};
+$('addFile').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const ext = (f.name.match(/\.(parquet|csv|tsv|jsonl|ndjson|json)$/i) || [0, 'csv'])[1].toLowerCase();
+  const bytes = new Uint8Array(await f.arrayBuffer()); const path = `/data/f${++fileN}.${ext}`;
+  await send('write_file', { path, bytes }, [bytes.buffer]);
+  await addTable($('addName').value.trim() ? tableName($('addName').value) : tableName(f.name), path, f.name); e.target.value = '';
 };
 
-// ---- boot ------------------------------------------------------------------
+// ---- settings ---------------------------------------------------------------------
+const settings = { mode: 'mock', url: DEFAULT_ENDPOINT, model: '', n: 20, redact: false, key: '', secret: '' };
+try { Object.assign(settings, JSON.parse(store.get('jev.settings') || '{}'), JSON.parse(store.get('jev.cred') || '{}')); } catch {}
+const epParam = new URLSearchParams(location.search).get('endpoint');
+if (epParam && /^https?:\/\//.test(epParam)) settings.url = epParam;
+function loadForm() {
+  document.querySelector(`input[name=mode][value=${settings.mode}]`).checked = true;
+  $('setUrl').value = settings.url; $('setModel').value = settings.model; $('setKey').value = settings.key; $('setSecret').value = settings.secret;
+  $('setN').value = settings.n; $('setRedact').checked = settings.redact; $('setRemember').checked = !!store.get('jev.cred');
+}
+function readForm() {
+  Object.assign(settings, { mode: document.querySelector('input[name=mode]:checked').value, url: $('setUrl').value.trim() || DEFAULT_ENDPOINT,
+    model: $('setModel').value.trim(), key: $('setKey').value.trim(), secret: $('setSecret').value.trim(),
+    n: Math.max(5, Math.min(100, parseInt($('setN').value, 10) || 20)), redact: $('setRedact').checked });
+}
+async function applySettings() {
+  const r = JSON.parse(await send('set_client', settings));
+  const live = r.client !== 'mock';
+  $('modePill').className = 'pill' + (live ? ' live' : ''); $('modePill').innerHTML = `${ic(live ? 'zap' : 'flask-conical')} ${live ? 'live · Jev' : 'mock client'}`;
+  $('cl').textContent = `client: ${r.client}${r.model && live ? ' · ' + r.model : ''}`;
+  const { key, secret, ...plain } = settings; store.set('jev.settings', JSON.stringify(plain));
+  if ($('setRemember').checked) store.set('jev.cred', JSON.stringify({ key, secret })); else store.del('jev.cred');
+}
+$('openSettings').onclick = () => { loadForm(); $('setOut').textContent = 'Not tested yet.'; $('setDlg').showModal(); };
+$('setClose').onclick = () => $('setDlg').close();
+$('setDlg').addEventListener('click', (e) => { const p = e.target.closest('[data-preset]'); if (p) $('setUrl').value = p.dataset.preset; });
+$('setSave').onclick = async () => {
+  readForm();
+  if (settings.mode === 'live' && !settings.key && !settings.secret) { $('setOut').innerHTML = '<span class="bad">Live mode needs an API key or a proxy secret.</span>'; return; }
+  if (!ready) { $('setOut').textContent = 'Still starting; try again in a moment.'; return; }
+  try { await applySettings(); $('setDlg').close(); } catch (e) { $('setOut').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+};
+$('setTest').onclick = async () => {
+  readForm(); const out = $('setOut');
+  if (!ready) { out.textContent = 'Still starting; try again in a moment.'; return; }
+  out.textContent = `checking ${settings.url}…`;
+  try { await fetch(settings.url, { mode: 'no-cors' }); } catch { out.innerHTML = '<span class="bad">Cannot reach the host.</span> A network problem (DNS, offline or TLS), not CORS. A brand-new hostname can take a few minutes to resolve on some networks.'; return; }
+  try { await fetch(settings.url, { method: 'POST', headers: { Authorization: 'Bearer dummy-not-a-real-key', 'Content-Type': 'application/json' }, body: '{}' }); }
+  catch { out.innerHTML = `<span class="bad">Blocked by CORS.</span> The host is reachable but does not allow ${esc(location.origin)}. Use a jev-proxy endpoint.`; return; }
+  if (settings.mode === 'mock') { out.innerHTML = '<span class="ok">Reachable, and the browser allows calls from this page.</span> Switch to Live and Apply to use it.'; return; }
+  if (!settings.key && !settings.secret) { out.innerHTML = '<span class="ok">Reachable and CORS is fine.</span> Add a key or proxy secret to test a real call.'; return; }
+  out.textContent = 'sending one tiny Jev call…';
+  try { await applySettings(); const r = JSON.parse(await send('test_client'));
+    out.innerHTML = r.ok ? `<span class="ok">Working.</span> ${esc(r.detail)}` : `<span class="bad">Failed:</span> ${esc(r.error)}`; }
+  catch (e) { out.innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
+};
+
+// ---- start --------------------------------------------------------------------------
 try {
-  const { loadPyodide } = await import('https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs');
-  py = await loadPyodide({ stdout: () => {}, stderr: (s) => console.warn(s) });
-  $('foot').textContent = 'loading DuckDB (about 20 MB, cached after the first visit)…';
-  await py.loadPackage(['duckdb', 'numpy', 'pyyaml', 'pyodide-http']);
-  await py.runPythonAsync('import pyodide_http; pyodide_http.patch_all()');
-  py.FS.mkdir('jev_pii');
-  for (const f of ['__init__', 'client', 'questions', 'udf', 'catalog', 'score']) {
-    const r = await fetch(`jev_pii/${f}.py`); if (!r.ok) throw new Error(`jev_pii/${f}.py: HTTP ${r.status}`);
-    py.FS.writeFile(`jev_pii/${f}.py`, await r.text());
-  }
-  await py.runPythonAsync(BOOT);
-  py.globals.get('set_client')('mock', '', '', '');
+  await send('init');
   ready = true; $('run').disabled = false;
-  $('modePill').textContent = 'mock client'; $('cl').textContent = 'client: mock';
   $('foot').textContent = 'Regimes are an engineering signal, not legal advice.';
-  refreshTree();
+  if (settings.mode === 'live' && (settings.key || settings.secret)) { try { await applySettings(); } catch {} }
+  else { $('modePill').innerHTML = `${ic('flask-conical')} mock client`; $('cl').textContent = 'client: mock'; }
+  await refreshTree();
+  if (qUrl) run();
 } catch (e) {
-  $('tree').innerHTML = `<div class="fn bad">Failed to start: ${esc(e.message || e)}</div>`; $('modePill').textContent = 'error';
+  $('tree').innerHTML = `<div class="empty bad">Failed to start: ${esc(e.message || e)}</div>`; $('modePill').textContent = 'error';
 }
 </script>
 </body>

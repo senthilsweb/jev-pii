@@ -23,8 +23,18 @@ FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_sampl
 
 ## Try it in the browser
 
-`index.html` is a small SQL studio (table list, editor, results grid) running DuckDB plus the same Python `jev_pii()` function in WebAssembly (Pyodide), no install: **https://www.senthilsweb.com/jev-pii/**
-Mock mode works anywhere. Live mode needs a CORS-enabled endpoint: the Jev API does not allow browser origins yet, so run the [`proxy/`](proxy/) (`ghcr.io/senthilsweb/jev-proxy`) and open the page with `?endpoint=https://your-proxy/v1/systemone`. The page has a one-click CORS check.
+**https://www.senthilsweb.com/jev-pii/** is a SQL studio (table list, CodeMirror editor, results grid) running DuckDB
+and the same Python `jev_pii()` function in WebAssembly (Pyodide, in a Web Worker), no install.
+
+- **Add data** with `+`: a CSV, Parquet or JSON URL, a `hf://datasets/...` file, or a file from your computer.
+  You can also query a URL directly (`SELECT * FROM 'https://.../x.parquet'`) or open `?url=...`.
+  The browser fetches the bytes (the host must allow CORS; GitHub raw and Hugging Face do) and DuckDB reads them
+  from memory. Nothing is uploaded.
+- **Discover PII**: the scan icon next to a table profiles every column (a sample of values, one Jev call per column)
+  into `pii_catalog`; the mask icon creates `silver_<table>` with the policy applied.
+- **Settings**: mock or live, endpoint, model, your TypeSafe key and/or proxy secret, sample size, shapes-only mode,
+  and an opt-in "remember on this device". The Jev API does not allow browser origins yet, so live mode needs a
+  [`proxy/`](proxy/) endpoint (`ghcr.io/senthilsweb/jev-proxy`); `?endpoint=` overrides the default.
 
 ## Run it
 

@@ -50,12 +50,12 @@ def build_catalog(con):
     _apply_policy(con)
 
 
-def _apply_policy(con):
+def _apply_policy(con, catalog="column_catalog"):
     # NULL answer = Jev failed or was unsure: park the column for a human, never guess.
-    con.execute("UPDATE column_catalog SET action = CASE WHEN sensitive IS NULL THEN 'review' "
+    con.execute(f"UPDATE {catalog} SET action = CASE WHEN sensitive IS NULL THEN 'review' "
                 "ELSE policy_action(category, sensitive) END")
     # Regimes are only reported for columns we act on: a noul answer is never exactly zero.
-    con.execute("""UPDATE column_catalog SET regimes = CASE WHEN action IN ('mask', 'hash', 'drop') THEN
+    con.execute(f"""UPDATE {catalog} SET regimes = CASE WHEN action IN ('mask', 'hash', 'drop') THEN
         list_filter([CASE WHEN regime_gdpr >= 0.5 THEN 'GDPR' END, CASE WHEN regime_ccpa_cpra >= 0.5 THEN 'CCPA_CPRA' END,
                      CASE WHEN regime_hipaa >= 0.5 THEN 'HIPAA' END, CASE WHEN regime_lgpd >= 0.5 THEN 'LGPD' END,
                      CASE WHEN regime_pipeda >= 0.5 THEN 'PIPEDA' END, CASE WHEN regime_dpdp_india >= 0.5 THEN 'DPDP_INDIA' END],
@@ -84,17 +84,44 @@ def deep_dive(con, n=60):
     return weak
 
 
-def build_silver(con, tables):
+def build_silver(con, tables, catalog="column_catalog"):
     """CREATE VIEW silver_<t>: each column kept, masked, hashed or dropped by the catalog."""
     expr = {"keep": '"{c}"', "mask": "'***' AS \"{c}\"", "hash": 'md5(CAST("{c}" AS VARCHAR)) AS "{c}"',
             "review": "NULL AS \"{c}\""}
     for t in tables:
         cols = []
-        for c, a in con.execute("SELECT column_name, action FROM column_catalog WHERE table_name = ? "
+        for c, a in con.execute(f"SELECT column_name, action FROM {catalog} WHERE table_name = ? "
                                 "ORDER BY ordinal", [t]).fetchall():
             if a != "drop":
                 cols.append(expr[a].format(c=c))
         con.execute(f"CREATE OR REPLACE VIEW silver_{t} AS SELECT {', '.join(cols)} FROM {t}")
+
+
+def discover(con, table, n=20, progress=None):
+    """Profile one table: sample each column, ask Jev, append the answers to pii_catalog.
+
+    Safe to repeat: the table's earlier rows are replaced. `progress(done, total, column)` is
+    called after every column so a UI can show it. Returns the number of columns profiled.
+    """
+    sample_columns(con, [table], n)
+    cols = [r[0] for r in con.execute("SELECT column_name FROM column_samples ORDER BY ordinal").fetchall()]
+    exists = con.execute("SELECT count(*) FROM information_schema.tables WHERE table_name = 'pii_catalog'").fetchone()[0] > 0
+    if exists:
+        con.execute("DELETE FROM pii_catalog WHERE table_name = ?", [table])
+    select = """SELECT table_name, column_name, ordinal, data_type, n_distinct, r.*, '' AS action,
+                       []::VARCHAR[] AS regimes
+                FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r
+                      FROM column_samples WHERE column_name = ?)"""
+    for i, col in enumerate(cols):
+        if exists:
+            con.execute(f"INSERT INTO pii_catalog {select}", [col])
+        else:
+            con.execute(f"CREATE TABLE pii_catalog AS {select}", [col])
+            exists = True
+        if progress:
+            progress(i + 1, len(cols), col)
+    _apply_policy(con, "pii_catalog")
+    return len(cols)
 
 
 def load_matrix(path="config/compliance_matrix.yaml"):
