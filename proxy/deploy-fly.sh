@@ -37,6 +37,11 @@ if [ -n "$KEY" ] && [ "${#SECRET}" -lt 16 ]; then
   echo "generated a PROXY_SECRET and saved it to proxy/.env (git-ignored). Read it from there; it is not printed."
 fi
 
+# Optional keyless mode (see README): OPEN_SERVER_KEY=1 [OPEN_RATE_PER_MIN, OPEN_DAILY_MAX] in the environment or .env
+OPEN="${OPEN_SERVER_KEY:-$(read_env OPEN_SERVER_KEY)}"
+OPEN_RATE="${OPEN_RATE_PER_MIN:-$(read_env OPEN_RATE_PER_MIN)}"
+OPEN_DAILY="${OPEN_DAILY_MAX:-$(read_env OPEN_DAILY_MAX)}"
+
 # --- app ---------------------------------------------------------------------------------------
 if ! fly apps list 2>/dev/null | awk '{print $1}' | grep -qx "$APP"; then
   fly apps create "$APP"
@@ -45,8 +50,13 @@ sed -i.bak -E "s/^app = .*/app = \"$APP\"/" fly.toml && rm -f fly.toml.bak
 [ -n "$REGION" ] && { sed -i.bak -E "s/^primary_region = .*/primary_region = \"$REGION\"/" fly.toml && rm -f fly.toml.bak; }
 
 if [ -n "$KEY" ]; then
-  printf 'TYPESAFE_API_KEY=%s\nPROXY_SECRET=%s\n' "$KEY" "$SECRET" | fly secrets import --app "$APP" --stage
-  echo "staged secrets: TYPESAFE_API_KEY, PROXY_SECRET"
+  {
+    printf 'TYPESAFE_API_KEY=%s\nPROXY_SECRET=%s\n' "$KEY" "$SECRET"
+    [ "$OPEN" = "1" ] && printf 'OPEN_SERVER_KEY=1\n'
+    [ -n "$OPEN_RATE" ] && printf 'OPEN_RATE_PER_MIN=%s\n' "$OPEN_RATE"
+    [ -n "$OPEN_DAILY" ] && printf 'OPEN_DAILY_MAX=%s\n' "$OPEN_DAILY"
+  } | fly secrets import --app "$APP" --stage
+  echo "staged: TYPESAFE_API_KEY, PROXY_SECRET$([ "$OPEN" = "1" ] && echo ', OPEN_SERVER_KEY=1 (callers with no credentials are served with your key, rate- and budget-limited)')"
 else
   echo "no TYPESAFE_API_KEY: deploying keyless (callers send their own key)"
 fi
@@ -73,4 +83,5 @@ echo
 echo "endpoint:  $URL"
 echo "demo page: https://www.senthilsweb.com/jev-pii/?endpoint=$URL"
 [ -n "$KEY" ] && echo "server-key mode: send header  X-Proxy-Secret: <PROXY_SECRET from proxy/.env>"
+[ "$OPEN" = "1" ] && echo "open mode: no credentials needed (limits: ${OPEN_RATE:-20}/min per client, ${OPEN_DAILY:-1000}/day total per machine)"
 echo "rotate a secret: edit .env and re-run this script. Logs: fly logs --app $APP"

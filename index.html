@@ -197,6 +197,7 @@
     <p class="hint">TypeSafe does not allow browser origins yet, so use a <a href="https://github.com/senthilsweb/jev-pii/tree/main/proxy">jev-proxy</a> endpoint (or your own).</p>
     <label for="setModel">Model</label>
     <input id="setModel" type="text" spellcheck="false" placeholder="jev-1.14.0">
+    <p class="hint">Leave the key and secret empty to use the proxy's own key, if the proxy allows keyless use.</p>
     <label for="setKey">TypeSafe API key <span class="mute">(sent as <code>Authorization: Bearer</code>; always overrides the proxy's own key)</span></label>
     <input id="setKey" type="password" autocomplete="off" placeholder="sk-…">
     <label for="setSecret">Proxy secret <span class="mute">(sent as <code>X-Proxy-Secret</code>; use this when the proxy holds the key)</span></label>
@@ -462,7 +463,6 @@ $('setClose').onclick = () => $('setDlg').close();
 $('setDlg').addEventListener('click', (e) => { const p = e.target.closest('[data-preset]'); if (p) $('setUrl').value = p.dataset.preset; });
 $('setSave').onclick = async () => {
   readForm();
-  if (settings.mode === 'live' && !settings.key && !settings.secret) { $('setOut').innerHTML = '<span class="bad">Live mode needs an API key or a proxy secret.</span>'; return; }
   if (!ready) { $('setOut').textContent = 'Still starting; try again in a moment.'; return; }
   try { await applySettings(); $('setDlg').close(); } catch (e) { $('setOut').innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
 };
@@ -474,8 +474,7 @@ $('setTest').onclick = async () => {
   try { await fetch(settings.url, { method: 'POST', headers: { Authorization: 'Bearer dummy-not-a-real-key', 'Content-Type': 'application/json' }, body: '{}' }); }
   catch { out.innerHTML = `<span class="bad">Blocked by CORS.</span> The host is reachable but does not allow ${esc(location.origin)}. Use a jev-proxy endpoint.`; return; }
   if (settings.mode === 'mock') { out.innerHTML = '<span class="ok">Reachable, and the browser allows calls from this page.</span> Switch to Live and Apply to use it.'; return; }
-  if (!settings.key && !settings.secret) { out.innerHTML = '<span class="ok">Reachable and CORS is fine.</span> Add a key or proxy secret to test a real call.'; return; }
-  out.textContent = 'sending one tiny Jev call…';
+  out.textContent = settings.key || settings.secret ? 'sending one tiny Jev call…' : 'sending one tiny Jev call with no credentials (works if the proxy allows keyless use)…';
   try { await applySettings(); const r = JSON.parse(await send('test_client'));
     out.innerHTML = r.ok ? `<span class="ok">Working.</span> ${esc(r.detail)}` : `<span class="bad">Failed:</span> ${esc(r.error)}`; }
   catch (e) { out.innerHTML = `<span class="bad">${esc(e.message)}</span>`; }
@@ -486,7 +485,7 @@ try {
   await send('init');
   ready = true; $('run').disabled = false;
   $('foot').textContent = 'Regimes are an engineering signal, not legal advice.';
-  if (settings.mode === 'live' && (settings.key || settings.secret)) { try { await applySettings(); } catch {} }
+  if (settings.mode === 'live') { try { await applySettings(); } catch {} }
   else { $('modePill').innerHTML = `${ic('flask-conical')} mock client`; $('cl').textContent = 'client: mock'; }
   await refreshTree();
   if (qUrl) run();

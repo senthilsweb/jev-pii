@@ -29,6 +29,9 @@ browser (www.senthilsweb.com)  --POST /v1/systemone, Authorization: Bearer <user
 | `TRUST_PROXY` | `0` | `1` to read the client IP from `X-Forwarded-For` (only behind your own reverse proxy) |
 | `TYPESAFE_API_KEY` | _(empty)_ | optional server-side key, only used with the proxy secret |
 | `PROXY_SECRET` | _(empty)_ | 16+ chars; callers send it as `X-Proxy-Secret` to use the server-side key |
+| `OPEN_SERVER_KEY` | `0` | `1` = callers with **no credentials** are served with the server key (see below) |
+| `OPEN_RATE_PER_MIN` | `20` | per-client limit for keyless callers |
+| `OPEN_DAILY_MAX` | `1000` | total keyless calls per UTC day, per instance |
 | `UPSTREAM_URL` | `https://api.typesafe.ai/v1/systemone` | for tests only |
 
 ## Server-side key (optional)
@@ -46,6 +49,21 @@ curl -X POST https://jev.example.com/v1/systemone -H "X-Proxy-Secret: $PROXY_SEC
 - The secret is a shared password, not user authentication: anyone who knows it spends your quota. Keep it out of
   public pages (a public page cannot hide it), rotate by editing `.env` and restarting, and use `RATE_PER_MIN`.
 - In Python: `JevClient(None, api_url="https://jev.example.com/v1/systemone", proxy_secret="...")`.
+
+## Keyless mode (optional, off by default)
+For a private demo you may want callers to send nothing at all. Set `OPEN_SERVER_KEY=1` (plus `TYPESAFE_API_KEY`):
+
+| request | result |
+|---|---|
+| `Authorization: Bearer <key>` | forwarded; the caller's key always wins and is not counted against the budget |
+| correct `X-Proxy-Secret` | server key, not counted against the keyless budget |
+| **no credentials at all** | server key, limited to `OPEN_RATE_PER_MIN` per client and `OPEN_DAILY_MAX` per day |
+| a wrong secret | 401 (a wrong secret is not "no credentials") |
+
+**This spends your quota for anyone who can reach the proxy.** The limits bound the damage but are per instance and in
+memory, so a restart or scale-to-zero resets the daily count, and `ALLOWED_ORIGINS` only protects browsers (curl and
+Postman can still call it). Keep the key's own spend cap low on the TypeSafe side, watch `fly logs`, and switch it off
+(`OPEN_SERVER_KEY=0`, redeploy) when you are done demoing.
 
 ## Run
 ```bash

@@ -170,3 +170,52 @@ def test_fly_client_ip_wins_when_proxy_is_trusted(c, monkeypatch):
     for ip, expect in [("1.1.1.1", 200), ("1.1.1.1", 200), ("1.1.1.1", 429), ("2.2.2.2", 200)]:
         r = c.post("/v1/systemone", content=b"{}", headers={**GOOD, "Fly-Client-IP": ip, "X-Forwarded-For": "9.9.9.9"})
         assert r.status_code == expect
+
+
+@pytest.fixture
+def open_mode(monkeypatch):
+    monkeypatch.setattr(proxy, "SERVER_KEY", "server-key-abcdefghij")
+    monkeypatch.setattr(proxy, "OPEN_SERVER_KEY", True)
+    monkeypatch.setattr(proxy, "OPEN_RATE_PER_MIN", 3)
+    monkeypatch.setattr(proxy, "OPEN_DAILY_MAX", 5)
+    proxy._open_day.update(day="", n=0)
+
+
+NOCRED = {"Origin": GOOD["Origin"]}
+
+
+def test_open_mode_serves_callers_with_no_credentials(c, open_mode):
+    r = c.post("/v1/systemone", content=b"{}", headers=NOCRED)
+    assert r.status_code == 200 and seen[0].headers["authorization"] == "Bearer server-key-abcdefghij"
+
+
+def test_open_mode_is_off_by_default(c, monkeypatch):
+    monkeypatch.setattr(proxy, "SERVER_KEY", "server-key-abcdefghij")
+    assert c.post("/v1/systemone", content=b"{}", headers=NOCRED).status_code == 401 and not seen
+
+
+def test_open_mode_without_a_server_key_has_nothing_to_serve_with(c, monkeypatch):
+    monkeypatch.setattr(proxy, "SERVER_KEY", "")
+    monkeypatch.setattr(proxy, "OPEN_SERVER_KEY", True)
+    assert c.post("/v1/systemone", content=b"{}", headers=NOCRED).status_code == 401
+
+
+def test_open_mode_has_its_own_stricter_rate_limit(c, open_mode):
+    codes = [c.post("/v1/systemone", content=b"{}", headers=NOCRED).status_code for _ in range(5)]
+    assert codes == [200, 200, 200, 429, 429]
+
+
+def test_open_mode_daily_budget_is_enforced_and_resets(c, open_mode, monkeypatch):
+    monkeypatch.setattr(proxy, "OPEN_RATE_PER_MIN", 1000)
+    codes = [c.post("/v1/systemone", content=b"{}", headers=NOCRED).status_code for _ in range(7)]
+    assert codes == [200] * 5 + [429, 429]
+    proxy._open_day["day"] = "1999-01-01"                 # a new UTC day
+    assert c.post("/v1/systemone", content=b"{}", headers=NOCRED).status_code == 200
+
+
+def test_open_mode_never_overrides_callers_own_key_or_wrong_secret(c, open_mode):
+    c.post("/v1/systemone", content=b"{}", headers=GOOD)
+    assert seen[-1].headers["authorization"] == KEY                       # caller's key wins, not metered
+    assert proxy._open_day["n"] == 0
+    bad = c.post("/v1/systemone", content=b"{}", headers={**NOCRED, "X-Proxy-Secret": "wrong-secret-0123456789"})
+    assert bad.status_code == 401                                          # a wrong secret is not "no credentials"

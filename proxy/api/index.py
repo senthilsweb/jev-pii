@@ -31,11 +31,23 @@ TRUST_PROXY = os.environ.get("TRUST_PROXY", "0") == "1"      # read X-Forwarded-
 # proves they may spend it with PROXY_SECRET (header X-Proxy-Secret); without a secret it is off.
 SERVER_KEY = os.environ.get("TYPESAFE_API_KEY", "").strip()
 PROXY_SECRET = os.environ.get("PROXY_SECRET", "").strip()
+# Optional "no credentials needed" mode: callers that send neither a key nor the secret still get served with the
+# server-side key. That makes the proxy spend YOUR quota for anyone who can reach it, so it is off by default and
+# bounded by a stricter per-client rate limit and a daily budget (per instance, in memory).
+OPEN_SERVER_KEY = os.environ.get("OPEN_SERVER_KEY", "0") == "1"
+OPEN_RATE_PER_MIN = int(os.environ.get("OPEN_RATE_PER_MIN", 20))
+OPEN_DAILY_MAX = int(os.environ.get("OPEN_DAILY_MAX", 1000))
+_open_day = {"day": "", "n": 0}
 PASS_BACK = ("retry-after", "retry-after-ms", "x-typesafe-request-id")
 
 log = logging.getLogger("jev_proxy")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-if SERVER_KEY and len(PROXY_SECRET) < 16:
+if OPEN_SERVER_KEY and not SERVER_KEY:
+    log.warning("OPEN_SERVER_KEY=1 but TYPESAFE_API_KEY is empty: there is no key to serve with, so it has no effect")
+if OPEN_SERVER_KEY and SERVER_KEY:
+    log.warning("open mode ON: callers with no credentials are served with the server key (%d/min per client, %d/day total)",
+                OPEN_RATE_PER_MIN, OPEN_DAILY_MAX)
+if SERVER_KEY and len(PROXY_SECRET) < 16 and not OPEN_SERVER_KEY:
     log.warning("TYPESAFE_API_KEY is set but PROXY_SECRET is missing or shorter than 16 characters: "
                 "server-key mode is OFF (callers must send their own Authorization header)")
 app = FastAPI(title="jev-pii proxy", docs_url=None, redoc_url=None, openapi_url=None)
@@ -55,16 +67,28 @@ def client_id(request: Request) -> str:
     return request.client.host if request.client else "?"
 
 
-def allow(client: str) -> bool:
+def allow(client: str, per_min: int | None = None) -> bool:
     """Token bucket. In-memory: per process, so on serverless it is best-effort only."""
+    per_min = RATE_PER_MIN if per_min is None else per_min
     now = time.monotonic()
-    tokens, last = _buckets.pop(client, (float(RATE_PER_MIN), now))
-    tokens = min(float(RATE_PER_MIN), tokens + (now - last) * RATE_PER_MIN / 60)
+    tokens, last = _buckets.pop(client, (float(per_min), now))
+    tokens = min(float(per_min), tokens + (now - last) * per_min / 60)
     ok = tokens >= 1
     _buckets[client] = (tokens - 1 if ok else tokens, now)
     while len(_buckets) > 10_000:
         _buckets.popitem(last=False)
     return ok
+
+
+def open_budget_left() -> bool:
+    """Daily cap on calls served with the server key to callers who sent no credentials (UTC day)."""
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    if _open_day["day"] != day:
+        _open_day.update(day=day, n=0)
+    if _open_day["n"] >= OPEN_DAILY_MAX:
+        return False
+    _open_day["n"] += 1
+    return True
 
 
 def cors(origin: str) -> dict:
@@ -120,6 +144,12 @@ async def forward(request: Request):
             return reply(401, b'{"error":"Authorization must be: Bearer <your TypeSafe key>"}', out)
     elif SERVER_KEY and len(PROXY_SECRET) >= 16 and hmac.compare_digest(
             request.headers.get("x-proxy-secret", "").encode(), PROXY_SECRET.encode()):
+        auth = f"Bearer {SERVER_KEY}"
+    elif SERVER_KEY and OPEN_SERVER_KEY and not request.headers.get("x-proxy-secret"):
+        if not allow("open:" + client_id(request), OPEN_RATE_PER_MIN):
+            return reply(429, b'{"error":"rate limit for keyless use"}', {**out, "Retry-After": "10"})
+        if not open_budget_left():
+            return reply(429, b'{"error":"daily budget for keyless use is used up; send your own key"}', out)
         auth = f"Bearer {SERVER_KEY}"
     else:                                               # no key, or a wrong/missing secret: same answer
         return reply(401, b'{"error":"send your own key as Authorization: Bearer ..., or the proxy secret"}', out)
