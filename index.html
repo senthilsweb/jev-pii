@@ -32,7 +32,7 @@
   <p class="mute">A Python function attached to DuckDB, running client-side in WebAssembly (Pyodide). It asks <a href="https://typesafe.ai">TypeSafe Jev</a> typed questions about each column and lands the answers as catalog columns. <a href="https://github.com/senthilsweb/jev-pii">Source</a>.</p>
 
   <h2>1. Can this page call Jev?</h2>
-  <p>Browsers block cross-origin calls unless the API allows them. This sends one request with a dummy key, from <code id="origin"></code>, to see what the browser says.</p>
+  <p>Browsers block cross-origin calls unless the API allows them (TypeSafe does not yet; a <a href="https://github.com/senthilsweb/jev-pii/tree/main/proxy">small proxy</a> can add the headers). This sends one request with a dummy key, from <code id="origin"></code>, to see what the browser says.</p>
   <label for="url">Endpoint</label>
   <input id="url" type="text" value="https://api.typesafe.ai/v1/systemone">
   <div class="row"><button id="probe" class="ghost">Run CORS check</button></div>
@@ -61,6 +61,8 @@
 const $ = (id) => document.getElementById(id);
 const log = (s) => { $('log').textContent += s + '\n'; };
 $('origin').textContent = location.origin;
+const ep = new URLSearchParams(location.search).get('endpoint');   // ?endpoint=https://your-proxy/v1/systemone
+if (ep && /^https?:\/\//.test(ep)) $('url').value = ep;
 
 // ---- 1. CORS probe ---------------------------------------------------------
 $('probe').onclick = async () => {

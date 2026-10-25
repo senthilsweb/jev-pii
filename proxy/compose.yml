@@ -1,0 +1,13 @@
+# Homelab: the proxy behind your own TLS reverse proxy (the page is https, so the proxy must be too).
+services:
+  jev-proxy:
+    image: ghcr.io/senthilsweb/jev-proxy:latest
+    restart: unless-stopped
+    environment:
+      ALLOWED_ORIGINS: "https://www.senthilsweb.com"
+      TRUST_PROXY: "1"              # read the client IP from X-Forwarded-For (set by Caddy/Traefik below)
+      RATE_PER_MIN: "120"
+    ports: ["127.0.0.1:8080:8080"]  # only the reverse proxy reaches it
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
