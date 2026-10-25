@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: '3.13' }
       - run: pip install -r proxy/requirements-dev.txt
-      - run: python -m pytest -q proxy/tests
+      - run: python -m pytest -q tests
         working-directory: proxy
 
   publish:
