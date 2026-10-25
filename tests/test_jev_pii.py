@@ -136,3 +136,14 @@ def test_deep_dive_revisits_only_weak_columns():
     build_catalog(con)
     assert deep_dive(con) == [("people", "phone")]
     con.close()
+
+
+def test_endpoint_is_configurable():
+    seen = []
+
+    def opener(req, timeout=0):
+        seen.append(req.full_url)
+        return Resp(json.dumps(reply()).encode())
+    c = JevClient("k", api_url="https://proxy.example/jev", cache_dir=None, opener=opener)
+    c.ask({"column": "x"}, pii_questions())
+    assert seen == ["https://proxy.example/jev"]

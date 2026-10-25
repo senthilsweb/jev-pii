@@ -21,6 +21,11 @@ SELECT table_name, column_name, r.*
 FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_samples);
 ```
 
+## Try it in the browser
+
+`index.html` runs the same Python function inside DuckDB in WebAssembly (Pyodide), no install: **https://www.senthilsweb.com/duckdb-jev-pii-discovery/**
+Mock mode works anywhere. Live mode needs the Jev API to allow browser origins (CORS); the page has a one-click check.
+
 ## Run it
 
 ```bash

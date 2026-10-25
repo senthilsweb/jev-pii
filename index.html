@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>jev_pii in the browser</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1b1b1a; --mute:#6b6a66; --line:#e3e0d8; --accent:#1f6f5c; --bad:#a3361f; --code:#f1eee7; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ecebe6; --mute:#9b9a94; --line:#2d2c29; --accent:#5cc2a6; --bad:#ef8a73; --code:#1f1f1d; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:32px 16px 64px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:15px; margin:32px 0 8px; text-transform:uppercase; letter-spacing:.06em; color:var(--mute); }
+  p { margin:8px 0; } .mute { color:var(--mute); }
+  code, pre, input, select { font:13px/1.5 ui-monospace, Menlo, monospace; }
+  pre { background:var(--code); padding:12px; border-radius:6px; overflow:auto; max-height:260px; margin:8px 0; white-space:pre-wrap; }
+  button { font:inherit; padding:8px 14px; border:1px solid var(--accent); background:var(--accent); color:var(--bg); border-radius:6px; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--accent); } button:disabled { opacity:.5; cursor:wait; }
+  input[type=password], input[type=text] { width:100%; padding:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); border-radius:6px; }
+  label { display:block; margin:10px 0 4px; font-size:13px; color:var(--mute); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  table { border-collapse:collapse; width:100%; font-size:13px; margin:8px 0; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  th { color:var(--mute); font-weight:600; }
+  .ok { color:var(--accent); } .bad { color:var(--bad); }
+  .a-mask,.a-hash,.a-drop { color:var(--accent); font-weight:600; } .a-review { color:var(--bad); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>jev_pii in the browser</h1>
+  <p class="mute">A Python function attached to DuckDB, running client-side in WebAssembly (Pyodide). It asks <a href="https://typesafe.ai">TypeSafe Jev</a> typed questions about each column and lands the answers as catalog columns. <a href="https://github.com/senthilsweb/duckdb-jev-pii-discovery">Source</a>.</p>
+
+  <h2>1. Can this page call Jev?</h2>
+  <p>Browsers block cross-origin calls unless the API allows them. This sends one request with a dummy key, from <code id="origin"></code>, to see what the browser says.</p>
+  <label for="url">Endpoint</label>
+  <input id="url" type="text" value="https://api.typesafe.ai/v1/systemone">
+  <div class="row"><button id="probe" class="ghost">Run CORS check</button></div>
+  <pre id="probeOut">not run</pre>
+
+  <h2>2. Run the pipeline</h2>
+  <p>Builds a small synthetic bronze set (three tables), samples every column, asks the questions, applies the policy and shows the masked silver view. First run downloads about 20 MB (DuckDB and Python).</p>
+  <div class="row">
+    <label><input type="radio" name="mode" value="mock" checked> Mock <span class="mute">(keyword heuristic, no network, not accurate)</span></label>
+    <label><input type="radio" name="mode" value="live"> Live Jev</label>
+  </div>
+  <label for="key">TypeSafe API key <span class="mute">(live mode only; kept in this tab's memory, sent only to the endpoint above)</span></label>
+  <input id="key" type="password" autocomplete="off" placeholder="sk-…">
+  <div class="row"><button id="run">Run</button><span id="status" class="mute"></span></div>
+
+  <h2>Column catalog</h2>
+  <div id="catalog" class="mute">nothing yet</div>
+  <h2>Silver view of <code>users</code></h2>
+  <div id="silver" class="mute">nothing yet</div>
+  <h2>Log</h2>
+  <pre id="log"></pre>
+  <p class="mute">Regimes are an engineering signal, not legal advice. Applicability depends on who the data subjects are and on thresholds a column sample cannot see.</p>
+</main>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const log = (s) => { $('log').textContent += s + '\n'; };
+$('origin').textContent = location.origin;
+
+// ---- 1. CORS probe ---------------------------------------------------------
+$('probe').onclick = async () => {
+  $('probeOut').textContent = 'sending…';
+  try {
+    const r = await fetch($('url').value, { method: 'POST', headers: { Authorization: 'Bearer dummy-not-a-real-key', 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'jev-1.14.0', state: {}, questions: {} }) });
+    $('probeOut').innerHTML = `<span class="ok">Reachable.</span> The browser let the call through; the API answered HTTP ${r.status} (expected, the key is a dummy).\nLive mode can work from ${location.origin}.`;
+  } catch (e) {
+    $('probeOut').innerHTML = `<span class="bad">Blocked.</span> ${e.name}: ${e.message}\nThe API did not allow ${location.origin} (CORS). Live mode will fail from this page; use a CORS-enabled endpoint or proxy.`;
+  }
+};
+
+// ---- 2. Pyodide pipeline ---------------------------------------------------
+const PY = `
+import json, duckdb
+from jev_pii import MockJev, JevClient, register
+from jev_pii.catalog import sample_columns, build_catalog, build_silver
+
+con = duckdb.connect()
+con.execute("""CREATE TABLE users AS SELECT * FROM (VALUES
+ ('Allison Hill','1965-02-10','321.581.9600','Cardiology'),
+ ('Kristina Baldwin','1994-10-27','(486) 537-9402','Pediatrics'),
+ ('Brandon Davis','1984-06-17','(794) 507-8161','Oncology'),
+ ('Maria Gomez','1979-03-02','555-010-4477','Radiology')) t(name, dateOfBirth, contactInfo, specialty)""")
+con.execute("""CREATE TABLE facilities AS SELECT * FROM (VALUES
+ ('Collins Inc Hospital','998 Samantha Crossroad Suite 731','688.480.4851'),
+ ('Thomas PLC Urgent Care','4502 Kristen Freeway','(257) 667-2991'),
+ ('Lake County Clinic','17 Pine Street','555-010-9000')) t(name, location, contactInfo)""")
+con.execute("""CREATE TABLE claims AS SELECT * FROM (VALUES
+ (1146,'Submitted',2531.80),(559,'In Review',115.08),(2201,'Paid',880.00),(318,'Denied',64.25)) t(patientID, status, amount)""")
+
+client = MockJev() if MODE == 'mock' else JevClient(KEY, api_url=URL, cache_dir=None, timeout=60)
+register(con, client)
+tables = ['users', 'facilities', 'claims']
+sample_columns(con, tables)
+build_catalog(con)
+build_silver(con, tables)
+cat = con.execute("""SELECT table_name, column_name, category, round(sensitive,2) sensitive, round(category_conf,2) conf,
+                     array_to_string(regimes, ' ') regimes, action FROM column_catalog ORDER BY table_name, ordinal""")
+cols = [d[0] for d in cat.description]
+catalog = [dict(zip(cols, r)) for r in cat.fetchall()]
+s = con.execute("SELECT * FROM silver_users")
+silver = {'cols': [d[0] for d in s.description], 'rows': s.fetchall()}
+print('client:', client.name, '| API calls:', getattr(client, 'calls', 0))
+json.dumps({'catalog': catalog, 'silver': silver}, default=str)
+`;
+let pyodide;
+const table = (cols, rows) => '<table><tr>' + cols.map((c) => `<th>${c}</th>`).join('') + '</tr>' +
+  rows.map((r) => '<tr>' + r.map((v, i) => `<td class="${cols[i] === 'action' ? 'a-' + v : ''}">${v ?? '<span class="mute">null</span>'}</td>`).join('') + '</tr>').join('') + '</table>';
+
+async function boot() {
+  if (pyodide) return pyodide;
+  $('status').textContent = 'loading Python + DuckDB…';
+  const { loadPyodide } = await import('https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs');
+  pyodide = await loadPyodide({ stdout: log, stderr: (s) => log('ERR ' + s) });
+  await pyodide.loadPackage(['duckdb', 'numpy', 'pyyaml', 'pyodide-http']);
+  await pyodide.runPythonAsync('import pyodide_http; pyodide_http.patch_all()');   // urllib -> browser XHR
+  pyodide.FS.mkdir('jev_pii');
+  for (const f of ['__init__', 'client', 'questions', 'udf', 'catalog', 'score']) {
+    const r = await fetch(`jev_pii/${f}.py`); if (!r.ok) throw new Error(`jev_pii/${f}.py: HTTP ${r.status}`);
+    pyodide.FS.writeFile(`jev_pii/${f}.py`, await r.text());
+  }
+  return pyodide;
+}
+
+$('run').onclick = async () => {
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  if (mode === 'live' && !$('key').value.trim()) { $('status').textContent = 'live mode needs a key'; return; }
+  $('run').disabled = true; $('log').textContent = '';
+  try {
+    const py = await boot();
+    py.globals.set('MODE', mode); py.globals.set('KEY', $('key').value.trim()); py.globals.set('URL', $('url').value);
+    $('status').textContent = mode === 'live' ? 'asking Jev, one call per column…' : 'running…';
+    const out = JSON.parse(await py.runPythonAsync(PY));
+    const c = out.catalog;
+    $('catalog').innerHTML = table(Object.keys(c[0]), c.map((r) => Object.values(r)));
+    $('silver').innerHTML = table(out.silver.cols, out.silver.rows);
+    $('status').textContent = `done (${mode})`;
+  } catch (e) {
+    $('status').textContent = 'failed';
+    log('ERROR: ' + (e.message || e).toString().split('\n').slice(-6).join('\n'));
+  } finally { $('run').disabled = false; py_clear(); }
+};
+function py_clear() { if (pyodide) { pyodide.globals.set('KEY', ''); } }
+</script>
+</body>
+</html>
