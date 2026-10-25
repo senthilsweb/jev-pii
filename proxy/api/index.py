@@ -5,12 +5,14 @@ cannot call it. This forwards ONE request shape to ONE upstream URL and adds the
 
 What it does and does not do:
   - forwards the caller's own `Authorization` header and JSON body, nothing else (no cookies);
-  - holds no API key of its own, so it cannot be used as a free relay on anyone's quota;
+  - holds no API key of its own unless you set TYPESAFE_API_KEY *and* PROXY_SECRET; that key is only
+    used for callers who send the secret, and a caller's own Authorization header always overrides it;
   - never stores or logs keys or bodies; its log line is method, status, ms and origin;
   - answers CORS only for ALLOWED_ORIGINS; limits body size and requests per minute per client.
 
 Run: uvicorn api.index:app          (Vercel: this file is the ASGI entrypoint)
 """
+import hmac
 import logging
 import os
 import time
@@ -25,10 +27,17 @@ ALLOWED = [o.strip() for o in os.environ.get(
 MAX_BODY = int(os.environ.get("MAX_BODY_BYTES", 256 * 1024))
 RATE_PER_MIN = int(os.environ.get("RATE_PER_MIN", 120))
 TRUST_PROXY = os.environ.get("TRUST_PROXY", "0") == "1"      # read X-Forwarded-For (behind Caddy/Traefik)
+# Optional server-side key, so callers need not send one. It is only ever used when the caller
+# proves they may spend it with PROXY_SECRET (header X-Proxy-Secret); without a secret it is off.
+SERVER_KEY = os.environ.get("TYPESAFE_API_KEY", "").strip()
+PROXY_SECRET = os.environ.get("PROXY_SECRET", "").strip()
 PASS_BACK = ("retry-after", "retry-after-ms", "x-typesafe-request-id")
 
 log = logging.getLogger("jev_proxy")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+if SERVER_KEY and len(PROXY_SECRET) < 16:
+    log.warning("TYPESAFE_API_KEY is set but PROXY_SECRET is missing or shorter than 16 characters: "
+                "server-key mode is OFF (callers must send their own Authorization header)")
 app = FastAPI(title="jev-pii proxy", docs_url=None, redoc_url=None, openapi_url=None)
 _buckets: "OrderedDict[str, tuple[float, float]]" = OrderedDict()   # client -> (tokens, last_ts)
 
@@ -87,7 +96,7 @@ async def preflight(request: Request):
     if not origin_ok(origin):
         return reply(403, b'{"error":"origin not allowed"}')
     return reply(204, headers={**cors(origin), "Access-Control-Allow-Methods": "POST, OPTIONS",
-                               "Access-Control-Allow-Headers": "Authorization, Content-Type",
+                               "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Proxy-Secret",
                                "Access-Control-Max-Age": "600"})
 
 
@@ -103,8 +112,14 @@ async def forward(request: Request):
     if not allow(client_id(request)):
         return reply(429, b'{"error":"rate limit"}', {**out, "Retry-After": "10"})
     auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer ") or len(auth) < 15:
-        return reply(401, b'{"error":"send your own TypeSafe key as Authorization: Bearer ..."}', out)
+    if auth:                                            # the caller's own key always wins
+        if not auth.lower().startswith("bearer ") or len(auth) < 15:
+            return reply(401, b'{"error":"Authorization must be: Bearer <your TypeSafe key>"}', out)
+    elif SERVER_KEY and len(PROXY_SECRET) >= 16 and hmac.compare_digest(
+            request.headers.get("x-proxy-secret", "").encode(), PROXY_SECRET.encode()):
+        auth = f"Bearer {SERVER_KEY}"
+    else:                                               # no key, or a wrong/missing secret: same answer
+        return reply(401, b'{"error":"send your own key as Authorization: Bearer ..., or the proxy secret"}', out)
     body = b""
     async for chunk in request.stream():
         body += chunk

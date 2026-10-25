@@ -147,3 +147,15 @@ def test_endpoint_is_configurable():
     c = JevClient("k", api_url="https://proxy.example/jev", cache_dir=None, opener=opener)
     c.ask({"column": "x"}, pii_questions())
     assert seen == ["https://proxy.example/jev"]
+
+
+def test_proxy_secret_is_sent_and_key_is_optional():
+    seen = []
+
+    def opener(req, timeout=0):
+        seen.append(dict(req.header_items()))
+        return Resp(json.dumps(reply()).encode())
+    c = JevClient(None, api_url="https://proxy.example/v1/systemone", proxy_secret="s" * 20,
+                  cache_dir=None, opener=opener)
+    c.ask({"column": "x"}, pii_questions())
+    assert seen[0].get("X-proxy-secret") == "s" * 20 and "Authorization" not in seen[0]

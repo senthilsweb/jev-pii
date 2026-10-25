@@ -46,6 +46,8 @@
   </div>
   <label for="key">TypeSafe API key <span class="mute">(live mode only; kept in this tab's memory, sent only to the endpoint above)</span></label>
   <input id="key" type="password" autocomplete="off" placeholder="sk-…">
+  <label for="secret">Proxy secret <span class="mute">(optional: only if your proxy holds the key; leave the key empty then)</span></label>
+  <input id="secret" type="password" autocomplete="off" placeholder="PROXY_SECRET">
   <div class="row"><button id="run">Run</button><span id="status" class="mute"></span></div>
 
   <h2>Column catalog</h2>
@@ -94,7 +96,7 @@ con.execute("""CREATE TABLE facilities AS SELECT * FROM (VALUES
 con.execute("""CREATE TABLE claims AS SELECT * FROM (VALUES
  (1146,'Submitted',2531.80),(559,'In Review',115.08),(2201,'Paid',880.00),(318,'Denied',64.25)) t(patientID, status, amount)""")
 
-client = MockJev() if MODE == 'mock' else JevClient(KEY, api_url=URL, cache_dir=None, timeout=60)
+client = MockJev() if MODE == 'mock' else JevClient(KEY or None, api_url=URL, proxy_secret=SECRET or None, cache_dir=None, timeout=60)
 register(con, client)
 tables = ['users', 'facilities', 'claims']
 sample_columns(con, tables)
@@ -130,11 +132,11 @@ async function boot() {
 
 $('run').onclick = async () => {
   const mode = document.querySelector('input[name=mode]:checked').value;
-  if (mode === 'live' && !$('key').value.trim()) { $('status').textContent = 'live mode needs a key'; return; }
+  if (mode === 'live' && !$('key').value.trim() && !$('secret').value.trim()) { $('status').textContent = 'live mode needs a key or a proxy secret'; return; }
   $('run').disabled = true; $('log').textContent = '';
   try {
     const py = await boot();
-    py.globals.set('MODE', mode); py.globals.set('KEY', $('key').value.trim()); py.globals.set('URL', $('url').value);
+    py.globals.set('MODE', mode); py.globals.set('KEY', $('key').value.trim()); py.globals.set('SECRET', $('secret').value.trim()); py.globals.set('URL', $('url').value);
     $('status').textContent = mode === 'live' ? 'asking Jev, one call per column…' : 'running…';
     const out = JSON.parse(await py.runPythonAsync(PY));
     const c = out.catalog;
@@ -146,7 +148,7 @@ $('run').onclick = async () => {
     log('ERROR: ' + (e.message || e).toString().split('\n').slice(-6).join('\n'));
   } finally { $('run').disabled = false; py_clear(); }
 };
-function py_clear() { if (pyodide) { pyodide.globals.set('KEY', ''); } }
+function py_clear() { if (pyodide) { pyodide.globals.set('KEY', ''); pyodide.globals.set('SECRET', ''); } }
 </script>
 </body>
 </html>

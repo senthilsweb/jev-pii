@@ -10,7 +10,7 @@ browser (www.senthilsweb.com)  --POST /v1/systemone, Authorization: Bearer <user
 
 ## What it does, and refuses to do
 - Forwards the caller's own `Authorization` header and JSON body. Nothing else: no cookies, no extra headers.
-- **Holds no key of its own**, so it cannot be used as a free relay on anyone's quota.
+- **Keyless by default**, so it cannot be used as a free relay on anyone's quota. Optionally it can hold your key (see "Server-side key").
 - Never stores or logs keys or bodies. Its log line is method, status, latency and origin. There is a test for it.
 - One route (`POST /v1/systemone`), one fixed upstream, CORS only for `ALLOWED_ORIGINS`, 256 KB body cap,
   per-client rate limit, 60 s upstream timeout (502 / 504 on upstream failure).
@@ -27,7 +27,25 @@ browser (www.senthilsweb.com)  --POST /v1/systemone, Authorization: Bearer <user
 | `RATE_PER_MIN` | `120` | requests per minute per client |
 | `MAX_BODY_BYTES` | `262144` | request size cap |
 | `TRUST_PROXY` | `0` | `1` to read the client IP from `X-Forwarded-For` (only behind your own reverse proxy) |
+| `TYPESAFE_API_KEY` | _(empty)_ | optional server-side key, only used with the proxy secret |
+| `PROXY_SECRET` | _(empty)_ | 16+ chars; callers send it as `X-Proxy-Secret` to use the server-side key |
 | `UPSTREAM_URL` | `https://api.typesafe.ai/v1/systemone` | for tests only |
+
+## Server-side key (optional)
+Put your key in `.env` so a notebook or your own page need not carry it:
+
+```bash
+cp .env.example .env     # set TYPESAFE_API_KEY and PROXY_SECRET (openssl rand -hex 24)
+docker compose up -d
+curl -X POST https://jev.example.com/v1/systemone -H "X-Proxy-Secret: $PROXY_SECRET" -d '{...}'
+```
+- A caller's own `Authorization: Bearer <key>` header **always overrides** the server key.
+- The server key is used only when the request also carries the right `X-Proxy-Secret`. A wrong or missing
+  secret gets the same 401 as no key. If `TYPESAFE_API_KEY` is set without a 16+ character `PROXY_SECRET`,
+  server-key mode stays off and a warning is logged (it fails closed).
+- The secret is a shared password, not user authentication: anyone who knows it spends your quota. Keep it out of
+  public pages (a public page cannot hide it), rotate by editing `.env` and restarting, and use `RATE_PER_MIN`.
+- In Python: `JevClient(None, api_url="https://jev.example.com/v1/systemone", proxy_secret="...")`.
 
 ## Run
 ```bash

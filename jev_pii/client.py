@@ -26,9 +26,10 @@ class JevError(RuntimeError):
 class JevClient:
     name = "jev"
 
-    def __init__(self, api_key, model=DEFAULT_MODEL, cache_dir=".cache", timeout=30, api_url=API_URL,
+    def __init__(self, api_key, model=DEFAULT_MODEL, cache_dir=".cache", timeout=30, api_url=API_URL, proxy_secret=None,
                  max_retries=2, breaker_after=5, opener=urllib.request.urlopen, sleep=time.sleep):
         self._key, self.model, self.timeout, self.url = api_key, model, timeout, api_url
+        self._secret = proxy_secret      # only for a jev-proxy that holds the key (see proxy/)
         self.max_retries, self.breaker_after = max_retries, breaker_after
         self._open, self._sleep = opener, sleep
         self._lock = threading.Lock()
@@ -53,8 +54,12 @@ class JevClient:
         if self._errors >= self.breaker_after:
             raise JevError("circuit open: too many consecutive errors")
         for attempt in range(self.max_retries + 1):
-            req = urllib.request.Request(self.url, data=body, headers={
-                "Authorization": f"Bearer {self._key}", "Content-Type": "application/json"})
+            headers = {"Content-Type": "application/json"}
+            if self._key:
+                headers["Authorization"] = f"Bearer {self._key}"
+            if self._secret:
+                headers["X-Proxy-Secret"] = self._secret
+            req = urllib.request.Request(self.url, data=body, headers=headers)
             try:
                 with self._open(req, timeout=self.timeout) as r:
                     reply = json.load(r)

@@ -117,3 +117,48 @@ def test_key_and_body_are_never_logged(c, caplog):
         c.post("/v1/systemone", content=b'{"state":{"secret_column":"sensitive-value"}}', headers=GOOD)
     text = " ".join(r.getMessage() for r in caplog.records)
     assert "sk-test" not in text and "sensitive-value" not in text and "secret_column" not in text
+
+
+SECRET = "proxy-secret-0123456789"
+
+
+@pytest.fixture
+def keyed(monkeypatch):
+    monkeypatch.setattr(proxy, "SERVER_KEY", "server-key-abcdefghij")
+    monkeypatch.setattr(proxy, "PROXY_SECRET", SECRET)
+
+
+def test_server_key_used_when_secret_matches(c, keyed):
+    r = c.post("/v1/systemone", content=b"{}", headers={"Origin": GOOD["Origin"], "X-Proxy-Secret": SECRET})
+    assert r.status_code == 200 and seen[0].headers["authorization"] == "Bearer server-key-abcdefghij"
+
+
+def test_callers_header_overrides_server_key(c, keyed):
+    c.post("/v1/systemone", content=b"{}", headers={**GOOD, "X-Proxy-Secret": SECRET})
+    assert seen[0].headers["authorization"] == KEY and "x-proxy-secret" not in seen[0].headers
+
+
+@pytest.mark.parametrize("hdr", [{}, {"X-Proxy-Secret": "wrong-secret-0123456789"}, {"X-Proxy-Secret": ""}])
+def test_server_key_needs_the_right_secret(c, keyed, hdr):
+    r = c.post("/v1/systemone", content=b"{}", headers={"Origin": GOOD["Origin"], **hdr})
+    assert r.status_code == 401 and not seen
+
+
+def test_server_key_without_a_secret_fails_closed(c, monkeypatch):
+    monkeypatch.setattr(proxy, "SERVER_KEY", "server-key-abcdefghij")
+    monkeypatch.setattr(proxy, "PROXY_SECRET", "")
+    assert c.post("/v1/systemone", content=b"{}", headers={"X-Proxy-Secret": ""}).status_code == 401
+    assert not seen
+
+
+def test_preflight_allows_the_secret_header(c):
+    r = c.options("/v1/systemone", headers={"Origin": GOOD["Origin"], "Access-Control-Request-Method": "POST"})
+    assert "x-proxy-secret" in r.headers["access-control-allow-headers"].lower()
+
+
+def test_server_key_and_secret_never_in_response_or_logs(c, keyed, caplog):
+    import logging
+    with caplog.at_level(logging.DEBUG):
+        r = c.post("/v1/systemone", content=b"{}", headers={"Origin": GOOD["Origin"], "X-Proxy-Secret": SECRET})
+    everything = r.text + str(dict(r.headers)) + " ".join(x.getMessage() for x in caplog.records)
+    assert "server-key-abcdefghij" not in everything and SECRET not in everything

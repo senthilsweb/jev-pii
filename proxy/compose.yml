@@ -3,10 +3,7 @@ services:
   jev-proxy:
     image: ghcr.io/senthilsweb/jev-proxy:latest
     restart: unless-stopped
-    environment:
-      ALLOWED_ORIGINS: "https://www.senthilsweb.com"
-      TRUST_PROXY: "1"              # read the client IP from X-Forwarded-For (set by Caddy/Traefik below)
-      RATE_PER_MIN: "120"
+    env_file: .env                  # TYPESAFE_API_KEY, PROXY_SECRET, ALLOWED_ORIGINS ... (see .env.example)
     ports: ["127.0.0.1:8080:8080"]  # only the reverse proxy reaches it
     read_only: true
     cap_drop: [ALL]
