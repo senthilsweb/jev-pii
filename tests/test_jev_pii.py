@@ -88,7 +88,7 @@ def test_shape_hides_values_keeps_format():
 
 @pytest.mark.parametrize("cat,s,expect", [("PERSON_NAME", .9, "mask"), ("GOVERNMENT_ID_SSN", .9, "drop"),
                                           ("HEALTH_RECORD_ID", .9, "hash"), ("NONE", .1, "keep"),
-                                          ("PERSON_NAME", None, "review"), ("NONE", .7, "review")])
+                                          ("PERSON_NAME", None, "review"), ("NONE", .7, "review"), ("ZIP_POSTAL_CODE", .4, "review")])
 def test_policy_is_deterministic(cat, s, expect):
     assert action_for(cat, s) == expect
 

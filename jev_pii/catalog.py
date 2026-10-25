@@ -18,7 +18,8 @@ def action_for(category: str, sensitive: float | None) -> str:
     if sensitive is None:
         return "review"
     if sensitive < SENSITIVE_AT:
-        return "keep"
+        # a specific category with a low score is a disagreement too: never keep it silently
+        return "keep" if category == "NONE" else "review"
     if category == "NONE":       # the two answers disagree: a person decides, not a default
         return "review"
     return next((a for a, cats in ACTIONS.items() if category in cats), "mask")
