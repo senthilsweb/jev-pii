@@ -1,0 +1,74 @@
+# Compliance-impact matrix (operator-populated, editable, non-legal-advice
+# starting point — review with counsel before relying on this in production).
+#
+# See pipeline/compliance.py and openspec/changes/add-pii-discovery-agent/design.md.
+#
+# `mappings` keys MUST be one of pipeline/taxonomy.py's CANONICAL_ENTITY_TYPES.
+# Add a jurisdiction to `jurisdictions`, then reference its key in any number
+# of `mappings` arrays — no code change needed either way.
+
+version: 1
+
+jurisdictions:
+  GDPR:
+    regulation_name: "General Data Protection Regulation"
+    region: "European Union"
+  CCPA_CPRA:
+    regulation_name: "California Consumer Privacy Act / CPRA"
+    region: "California, United States"
+  DPDP_INDIA:
+    regulation_name: "Digital Personal Data Protection Act, 2023"
+    region: "India"
+  PDPL_ARGENTINA:
+    regulation_name: "Personal Data Protection Law No. 25,326"
+    region: "Argentina"
+  HIPAA:
+    regulation_name: "Health Insurance Portability and Accountability Act"
+    region: "United States (health data)"
+  LGPD:
+    regulation_name: "Lei Geral de Proteção de Dados"
+    region: "Brazil"
+  PIPEDA:
+    regulation_name: "Personal Information Protection and Electronic Documents Act"
+    region: "Canada"
+
+mappings:
+  PERSON_NAME: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  EMAIL_ADDRESS: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  PHONE_NUMBER: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  PHYSICAL_ADDRESS: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  ZIP_POSTAL_CODE: [CCPA_CPRA, GDPR, LGPD]
+  GEOLOCATION: [GDPR, CCPA_CPRA, LGPD]
+  DATE_OF_BIRTH: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  GENDER: [GDPR, CCPA_CPRA, LGPD]
+  RACE_ETHNICITY: [GDPR, CCPA_CPRA, LGPD]
+  RELIGIOUS_BELIEF: [GDPR, CCPA_CPRA, LGPD]
+  SEXUAL_ORIENTATION: [GDPR, CCPA_CPRA, LGPD]
+  POLITICAL_OPINION: [GDPR, LGPD]
+  GOVERNMENT_ID_SSN: [CCPA_CPRA, PIPEDA, GDPR, DPDP_INDIA, PDPL_ARGENTINA, LGPD]
+  GOVERNMENT_ID_NATIONAL: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  GOVERNMENT_ID_PASSPORT: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  GOVERNMENT_ID_DRIVER_LICENSE: [GDPR, CCPA_CPRA, PIPEDA]
+  GOVERNMENT_ID_TAX: [GDPR, CCPA_CPRA, DPDP_INDIA, LGPD]
+  FINANCIAL_ACCOUNT_NUMBER: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  CREDIT_CARD_NUMBER: [GDPR, CCPA_CPRA, DPDP_INDIA, PDPL_ARGENTINA, LGPD, PIPEDA]
+  BANK_ROUTING_NUMBER: [GDPR, CCPA_CPRA, LGPD, PIPEDA]
+  IBAN: [GDPR, CCPA_CPRA, LGPD]
+  CRYPTO_WALLET_ADDRESS: [GDPR, CCPA_CPRA]
+  HEALTH_CONDITION: [HIPAA, GDPR, LGPD, DPDP_INDIA]
+  HEALTH_RECORD_ID: [HIPAA, GDPR, LGPD]
+  BIOMETRIC_IDENTIFIER: [GDPR, CCPA_CPRA, HIPAA, LGPD]
+  GENETIC_DATA: [GDPR, HIPAA, LGPD]
+  IP_ADDRESS: [GDPR, CCPA_CPRA, LGPD]
+  MAC_ADDRESS: [GDPR, CCPA_CPRA]
+  DEVICE_IDENTIFIER: [GDPR, CCPA_CPRA, LGPD]
+  LOGIN_CREDENTIAL: [GDPR, CCPA_CPRA, LGPD, PIPEDA]
+  EMPLOYMENT_INFO: [GDPR, CCPA_CPRA, LGPD]
+  EDUCATION_INFO: [GDPR, CCPA_CPRA, LGPD]
+  VEHICLE_IDENTIFIER: [GDPR, CCPA_CPRA]
+  MINOR_DATA: [GDPR, CCPA_CPRA, DPDP_INDIA, LGPD]
+  OTHER_SENSITIVE: [GDPR, CCPA_CPRA]
+  UNKNOWN: []
+
+# Jurisdictions applied to a canonical type with no explicit `mappings` entry.
+default: []

@@ -1,0 +1,51 @@
+table,column,is_pii,true_category,ambiguous,note
+users,id,0,NONE,0,
+users,userID,0,NONE,1,staff identifier
+users,userType,0,NONE,0,
+users,name,1,PERSON_NAME,0,
+users,dateOfBirth,1,DATE_OF_BIRTH,0,
+users,contactInfo,1,PHONE_NUMBER,0,staff phone
+users,specialty,0,NONE,1,job detail of an individual
+users,department,0,NONE,1,job detail of an individual
+users,role,0,NONE,1,job detail of an individual
+encounters,id,0,NONE,0,
+encounters,encounterID,0,NONE,0,
+encounters,patientID,1,HEALTH_RECORD_ID,0,HIPAA identifier
+encounters,doctorID,0,NONE,0,
+encounters,facilityID,0,NONE,0,
+encounters,date,0,NONE,1,service date; HIPAA identifier when linked
+encounters,type,0,NONE,1,visit type; health-related
+encounters,duration,0,NONE,0,
+encounters,notes,0,NONE,1,synthetic filler text; clinical notes in real life
+claims,id,0,NONE,0,
+claims,claimID,0,NONE,0,
+claims,patientID,1,HEALTH_RECORD_ID,0,HIPAA identifier
+claims,payerID,0,NONE,0,
+claims,status,0,NONE,0,
+claims,dateCreated,0,NONE,0,
+claims,dateUpdated,0,NONE,0,
+claims,amount,0,NONE,1,"financial, linked to a patient"
+activities,id,0,NONE,0,
+activities,activityID,0,NONE,0,
+activities,claimID,0,NONE,0,
+activities,activityDate,0,NONE,0,
+activities,activityType,0,NONE,1,clinical activity type
+activities,diagnosisCode,1,HEALTH_CONDITION,0,
+activities,procedureCode,1,HEALTH_CONDITION,0,
+activities,notes,0,NONE,1,synthetic filler text
+collections,id,0,NONE,0,
+collections,collectionID,0,NONE,0,
+collections,claimID,0,NONE,0,
+collections,date,0,NONE,0,
+collections,methodOfCollection,0,NONE,0,
+collections,amountCollected,0,NONE,0,
+collections,status,0,NONE,0,
+facilities,id,0,NONE,0,
+facilities,facilityID,0,NONE,0,
+facilities,name,0,NONE,0,"TRAP: a name, but a business"
+facilities,location,0,NONE,0,"TRAP: an address, but a facility not a person"
+facilities,contactInfo,0,NONE,0,TRAP: looks like users.contactInfo but is a business line
+health_plans,id,0,NONE,0,
+health_plans,healthPlanID,0,NONE,0,
+health_plans,planName,0,NONE,0,
+health_plans,payerID,0,NONE,0,
