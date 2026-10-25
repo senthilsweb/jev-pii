@@ -162,3 +162,11 @@ def test_server_key_and_secret_never_in_response_or_logs(c, keyed, caplog):
         r = c.post("/v1/systemone", content=b"{}", headers={"Origin": GOOD["Origin"], "X-Proxy-Secret": SECRET})
     everything = r.text + str(dict(r.headers)) + " ".join(x.getMessage() for x in caplog.records)
     assert "server-key-abcdefghij" not in everything and SECRET not in everything
+
+
+def test_fly_client_ip_wins_when_proxy_is_trusted(c, monkeypatch):
+    monkeypatch.setattr(proxy, "TRUST_PROXY", True)
+    monkeypatch.setattr(proxy, "RATE_PER_MIN", 2)
+    for ip, expect in [("1.1.1.1", 200), ("1.1.1.1", 200), ("1.1.1.1", 429), ("2.2.2.2", 200)]:
+        r = c.post("/v1/systemone", content=b"{}", headers={**GOOD, "Fly-Client-IP": ip, "X-Forwarded-For": "9.9.9.9"})
+        assert r.status_code == expect

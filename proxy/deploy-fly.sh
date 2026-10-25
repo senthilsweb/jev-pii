@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Deploy jev-proxy to Fly.io.
+#
+#   ./deploy-fly.sh <app-name> [--domain jev.example.com] [--region iad]
+#
+# Reads TYPESAFE_API_KEY and PROXY_SECRET from the environment or from ./.env (git-ignored).
+# - TYPESAFE_API_KEY empty  -> keyless proxy: every caller sends their own Authorization header.
+# - TYPESAFE_API_KEY set    -> a PROXY_SECRET (16+ chars) is required; one is generated and saved
+#                              to .env if missing. Callers send it as X-Proxy-Secret.
+# Secrets reach Fly over stdin (`fly secrets import`), never on a command line, and are never printed.
+set -euo pipefail
+cd "$(dirname "$0")"
+
+APP="${1:-}"; shift || true
+DOMAIN=""; REGION=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --domain) DOMAIN="${2:?--domain needs a value}"; shift 2 ;;
+    --region) REGION="${2:?--region needs a value}"; shift 2 ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+[ -n "$APP" ] || { echo "usage: $0 <app-name> [--domain host] [--region code]" >&2; exit 2; }
+command -v fly >/dev/null 2>&1 || { echo "flyctl not found. Install: https://fly.io/docs/flyctl/install/" >&2; exit 1; }
+fly auth whoami >/dev/null 2>&1 || { echo "not logged in. Run: fly auth login" >&2; exit 1; }
+
+# --- secrets from env or .env (KEY=VALUE lines only; no shell evaluation) -----------------------
+read_env() { [ -f .env ] && grep -E "^$1=" .env | tail -1 | cut -d= -f2- | sed -e 's/^["'\'']//' -e 's/["'\'']$//' || true; }
+KEY="${TYPESAFE_API_KEY:-$(read_env TYPESAFE_API_KEY)}"
+SECRET="${PROXY_SECRET:-$(read_env PROXY_SECRET)}"
+if [ -n "$KEY" ] && [ "${#SECRET}" -lt 16 ]; then
+  SECRET="$(openssl rand -hex 24)"
+  touch .env && chmod 600 .env
+  grep -v '^PROXY_SECRET=' .env > .env.tmp || true; mv .env.tmp .env
+  printf 'PROXY_SECRET=%s\n' "$SECRET" >> .env
+  chmod 600 .env
+  echo "generated a PROXY_SECRET and saved it to proxy/.env (git-ignored). Read it from there; it is not printed."
+fi
+
+# --- app ---------------------------------------------------------------------------------------
+if ! fly apps list 2>/dev/null | awk '{print $1}' | grep -qx "$APP"; then
+  fly apps create "$APP"
+fi
+sed -i.bak -E "s/^app = .*/app = \"$APP\"/" fly.toml && rm -f fly.toml.bak
+[ -n "$REGION" ] && { sed -i.bak -E "s/^primary_region = .*/primary_region = \"$REGION\"/" fly.toml && rm -f fly.toml.bak; }
+
+if [ -n "$KEY" ]; then
+  printf 'TYPESAFE_API_KEY=%s\nPROXY_SECRET=%s\n' "$KEY" "$SECRET" | fly secrets import --app "$APP" --stage
+  echo "staged secrets: TYPESAFE_API_KEY, PROXY_SECRET"
+else
+  echo "no TYPESAFE_API_KEY: deploying keyless (callers send their own key)"
+fi
+
+# --- deploy + verify ---------------------------------------------------------------------------
+fly deploy --app "$APP" --config fly.toml --ha=false
+HOST="$APP.fly.dev"
+for i in 1 2 3 4 5 6; do
+  curl -fsS "https://$HOST/healthz" >/dev/null 2>&1 && { echo "healthy: https://$HOST/healthz"; break; }
+  [ "$i" = 6 ] && { echo "health check did not pass; see: fly logs --app $APP" >&2; exit 1; }
+  sleep 5
+done
+
+if [ -n "$DOMAIN" ]; then
+  fly certs add "$DOMAIN" --app "$APP" || true
+  echo "DNS: create  CNAME  $DOMAIN  ->  $HOST   (then: fly certs check $DOMAIN --app $APP)"
+fi
+
+URL="https://${DOMAIN:-$HOST}/v1/systemone"
+echo
+echo "endpoint:  $URL"
+echo "demo page: https://www.senthilsweb.com/jev-pii/?endpoint=$URL"
+[ -n "$KEY" ] && echo "server-key mode: send header  X-Proxy-Secret: <PROXY_SECRET from proxy/.env>"
+echo "rotate a secret: edit .env and re-run this script. Logs: fly logs --app $APP"

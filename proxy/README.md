@@ -71,6 +71,23 @@ Set the project root to `proxy/`. `vercel.json` rewrites everything to `api/inde
 Settings go in the project's environment variables. Not tested on Vercel yet. The rate limiter is in memory,
 so on serverless it is best-effort per instance only.
 
+## Fly.io
+`fly.toml` and `deploy-fly.sh` deploy the published image (nothing is built on Fly) and set the secrets for you.
+
+```bash
+brew install flyctl && fly auth login                 # once
+cp .env.example .env                                  # put TYPESAFE_API_KEY in it (PROXY_SECRET is generated if empty)
+./deploy-fly.sh my-jev-proxy --domain jev.example.com # app names are global on Fly; --domain and --region are optional
+```
+- Secrets go to Fly over stdin (`fly secrets import`), never on a command line, and are never printed.
+  A generated `PROXY_SECRET` is saved to `.env` (mode 600); read it from there.
+- With no `TYPESAFE_API_KEY` it deploys keyless: every caller sends their own `Authorization` header.
+- It scales to zero when idle (the first request after a pause takes a second or two) and runs one 256 MB machine.
+  The rate limiter is in memory, so it is per machine. Check Fly's current pricing and free allowance.
+- The script rewrites `app` and `primary_region` in `fly.toml`; commit or discard that as you like.
+- To rotate the key or secret, edit `.env` and run the script again.
+- Not run against a real Fly account yet: the script is tested against a stub `fly` that records its calls.
+
 ## Image
 `ghcr.io/senthilsweb/jev-proxy` (linux/amd64 + arm64), built by `.github/workflows/proxy-image.yml` after the
 tests pass. Runs as a non-root user with a healthcheck.

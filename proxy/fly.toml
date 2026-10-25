@@ -1,0 +1,30 @@
+# Fly.io config for jev-proxy. `app` is set by deploy-fly.sh (app names are global on Fly).
+app = "jev-proxy-CHANGE-ME"
+primary_region = "iad"
+
+[build]
+  image = "ghcr.io/senthilsweb/jev-proxy:latest"     # public image; nothing is built on Fly
+
+[env]
+  ALLOWED_ORIGINS = "https://www.senthilsweb.com"
+  TRUST_PROXY = "1"            # Fly sets Fly-Client-IP; the rate limiter reads it
+  RATE_PER_MIN = "120"
+  # TYPESAFE_API_KEY and PROXY_SECRET are Fly secrets, set by deploy-fly.sh. Never put them here.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"  # scale to zero when idle; the first request after a pause takes a second or two
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

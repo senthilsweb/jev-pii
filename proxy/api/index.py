@@ -47,8 +47,11 @@ def origin_ok(origin: str) -> bool:
 
 
 def client_id(request: Request) -> str:
-    if TRUST_PROXY and request.headers.get("x-forwarded-for"):
-        return request.headers["x-forwarded-for"].split(",")[0].strip()
+    if TRUST_PROXY:                                   # only behind your own edge (Fly, Caddy, Traefik)
+        if request.headers.get("fly-client-ip"):      # Fly sets this itself and overwrites any client value
+            return request.headers["fly-client-ip"].strip()
+        if request.headers.get("x-forwarded-for"):
+            return request.headers["x-forwarded-for"].split(",")[0].strip()
     return request.client.host if request.client else "?"
 
 
