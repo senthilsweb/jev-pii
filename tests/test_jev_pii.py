@@ -189,3 +189,20 @@ def test_discover_is_incremental_and_repeatable_per_table():
     build_silver(con, ["people"], catalog="pii_catalog")
     assert con.execute("SELECT name, score FROM silver_people LIMIT 1").fetchone() == ("***", 10)
     con.close()
+
+
+def test_table_macro_returns_a_rowset_with_a_column_per_answer():
+    con = make_con(MockJev())
+    cur = con.execute("SELECT * FROM jev_pii_table('t', 'phone', ['(555) 555-0101', '(555) 555-0102'])")
+    cols = [d[0] for d in cur.description]
+    row = cur.fetchall()
+    assert len(row) == 1 and cols[:5] == ["sensitive", "category", "category_conf", "runner_up", "runner_up_p"]
+    assert dict(zip(cols, row[0]))["category"] == "PHONE_NUMBER"
+    # real data as the sample, the way a user would write it
+    got = con.execute("SELECT category FROM jev_pii_table('people', 'name', "
+                      "(SELECT list(DISTINCT CAST(name AS VARCHAR))[:20] FROM people))").fetchall()
+    assert got == [("PERSON_NAME",)]
+    # re-registering (mock <-> live) keeps the macro working
+    register(con, MockJev())
+    assert con.execute("SELECT count(*) FROM jev_pii_table('t', 'x', ['1'])").fetchall() == [(1,)]
+    con.close()

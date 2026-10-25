@@ -44,3 +44,7 @@ def register(con, client, redact=False):
     con.create_function("jev_pii", jev_pii, [T.VARCHAR, T.VARCHAR, duckdb.list_type(T.VARCHAR)],
                         struct, side_effects=True, null_handling="special")
     con.create_function("policy_action", action_for, [T.VARCHAR, T.DOUBLE], T.VARCHAR)
+    # The scalar returns ONE struct value. This table macro returns the same answers as a one-row table with a
+    # column per answer, which is what `SELECT * FROM ...` users expect.
+    con.execute("CREATE OR REPLACE MACRO jev_pii_table(tbl, col, samples) AS TABLE "
+                "SELECT r.* FROM (SELECT jev_pii(tbl, col, samples) AS r)")

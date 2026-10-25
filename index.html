@@ -136,7 +136,8 @@
     <div id="tree"><div class="empty">starting Python + DuckDB…</div></div>
     <div id="fns">
       <div class="head"><span>AI functions</span></div>
-      <button data-snip="SELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;"><span class="mono sig">jev_pii(table, column, samples)</span><span class="d">typed struct: sensitive, category, regimes…</span></button>
+      <button data-snip="SELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);"><span class="mono sig">jev_pii_table(table, column, samples)</span><span class="d">a one-row table: a column per answer</span></button>
+      <button data-snip="SELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;"><span class="mono sig">jev_pii(table, column, samples)</span><span class="d">the same answers as one struct value, for use inside a query</span></button>
       <button data-snip="SELECT policy_action('PERSON_NAME', 0.9) AS action;"><span class="mono sig">policy_action(category, sensitive)</span><span class="d">keep / mask / hash / drop / review</span></button>
     </div>
   </aside>
@@ -243,7 +244,8 @@ const EXAMPLES = {
   'Query a remote CSV': `SELECT * FROM '${CW}users.csv' LIMIT 20;`,
   'Query a remote Parquet': `SELECT company_name, count(*) AS openings\nFROM '${JOBS}'\nGROUP BY 1 ORDER BY 2 DESC LIMIT 10;`,
   'Query a Hugging Face dataset': `SELECT column_name, output AS pii_label\nFROM 'hf://datasets/trl-lab/contextual-sensitive-data/train_data_personal.csv'\nLIMIT 20;`,
-  'Ask Jev about one column': `-- jev_pii() is a Python function attached to DuckDB; it returns a typed struct\nSELECT jev_pii('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']) AS answer;`,
+  'Ask Jev about one column': `-- a one-row table, one column per answer\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
+  'Ask Jev about a column of your data': `-- needs a table named users (add one with +): samples come from the data itself\nSELECT * FROM jev_pii_table('users', 'contactInfo',\n  (SELECT list(DISTINCT CAST(contactInfo AS VARCHAR))[:20] FROM users));`,
   'Read the PII catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
   'Columns that need action': `SELECT table_name, column_name, category, action, regimes\nFROM pii_catalog WHERE action <> 'keep' ORDER BY table_name, ordinal;`,
 };

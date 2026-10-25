@@ -17,6 +17,11 @@ One call per **column** (a reproducible 20-value sample), then a deeper 60-value
 If Jev fails the answer is `NULL` and the column goes to `review`; the pipeline never stops.
 
 ```sql
+-- one column, as a one-row table with a column per answer
+SELECT * FROM jev_pii_table('users', 'contactInfo',
+  (SELECT list(DISTINCT CAST(contactInfo AS VARCHAR))[:20] FROM users));
+
+-- many columns: jev_pii() returns the same answers as one struct value; r.* expands it
 SELECT table_name, column_name, r.*
 FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_samples);
 ```
