@@ -25,6 +25,22 @@ def action_for(category: str, sensitive: float | None) -> str:
     return next((a for a, cats in ACTIONS.items() if category in cats), "mask")
 
 
+def policy_rows():
+    """The category -> action rule as plain rows, so SQL users can read it: SELECT * FROM jev_policy.
+
+    This is the first half of policy_action(). The second half is the safety net: an answer where the score and the
+    category disagree, or a failed call, is never auto-applied and goes to `review`.
+    """
+    from .questions import CATEGORIES
+    rows = []
+    for cat in CATEGORIES:
+        if cat == "NONE":
+            rows.append((cat, "keep"))
+        else:
+            rows.append((cat, next((a for a, cats in ACTIONS.items() if cat in cats), "mask")))
+    return rows
+
+
 def sample_columns(con, tables, n=20, seed="jev"):
     """One row per column: a reproducible sample of n distinct non-null values."""
     con.execute("CREATE OR REPLACE TABLE column_samples "

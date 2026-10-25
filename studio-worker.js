@@ -9,10 +9,12 @@ globalThis.reportProgress = (id, done, total, col) => postMessage({ id, progress
 const BOOT = `
 import json, time, duckdb, js
 from jev_pii import MockJev, JevClient, register, pii_questions
-from jev_pii.catalog import discover, build_silver
+from jev_pii.catalog import discover, build_silver, policy_rows
 
 con = duckdb.connect()
 _c = {}
+con.execute('CREATE TABLE jev_policy (category VARCHAR, action VARCHAR)')   # the readable half of policy_action()
+con.executemany('INSERT INTO jev_policy VALUES (?, ?)', policy_rows())
 INTERNAL = ('column_samples', 'column_catalog')   # scratch tables the discover step uses; hidden from the tree
 
 def set_client(mode, key, url, secret, model, redact, max_calls=0):

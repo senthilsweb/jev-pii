@@ -307,3 +307,12 @@ def test_the_same_row_twice_costs_one_call():
     con.execute("SELECT unnest(jev_pii_row(t)) FROM (SELECT * FROM dup) t").fetchall()
     assert live.calls == 1                                      # one call, however many times DuckDB evaluates the row
     con.close()
+
+
+def test_policy_table_is_the_same_rule_as_policy_action():
+    from jev_pii.catalog import policy_rows
+    rows = dict(policy_rows())
+    assert rows["NONE"] == "keep" and rows["GOVERNMENT_ID_SSN"] == "drop" and rows["HEALTH_RECORD_ID"] == "hash"
+    assert rows["PERSON_NAME"] == "mask" and len(rows) == 20
+    for cat, action in rows.items():                       # a confident answer must follow the table exactly
+        assert action_for(cat, 0.9 if cat != "NONE" else 0.1) == action
