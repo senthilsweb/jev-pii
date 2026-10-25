@@ -1,4 +1,4 @@
-# duckdb-jev-pii-discovery
+# jev-pii
 
 PII and compliance discovery in plain SQL. A DuckDB Python UDF, `jev_pii()`, asks
 [TypeSafe Jev](https://typesafe.ai) several **typed** questions about one column and returns a struct, so
@@ -23,7 +23,7 @@ FROM (SELECT *, jev_pii(table_name, column_name, samples) AS r FROM column_sampl
 
 ## Try it in the browser
 
-`index.html` runs the same Python function inside DuckDB in WebAssembly (Pyodide), no install: **https://www.senthilsweb.com/duckdb-jev-pii-discovery/**
+`index.html` runs the same Python function inside DuckDB in WebAssembly (Pyodide), no install: **https://www.senthilsweb.com/jev-pii/**
 Mock mode works anywhere. Live mode needs the Jev API to allow browser origins (CORS); the page has a one-click check.
 
 ## Run it
