@@ -287,49 +287,88 @@ const SAMPLES = [
 ];
 const HF = 'hf://datasets/trl-lab/contextual-sensitive-data/train_data_personal.csv';
 const USERS = `${CW}users.csv`;     // a synthetic clinician list: name, dateOfBirth, contactInfo, specialty
-// The default query: four custom questions asked about every row, answers as aliased jev_* columns.
-const DEFAULT_SQL = `-- Ask Jev four questions about each row. The answers come back as new jev_* columns.
-WITH src AS (                     -- 1. YOUR DATA: four columns of a clinician list (Claimwise, synthetic)
+// Query builders. The row goes in once, with its columns; each question names the one column it is about.
+const QUESTIONS_PER_COLUMN = `'{
+      "name_is_real":      {"type": "noul",   "instructions": "About the name value only: probability that it is a real full name of a person."},
+      "dob_is_plausible":  {"type": "noul",   "instructions": "About the dateOfBirth value only: probability that it is a real, plausible date of birth for a working adult."},
+      "contact_kind":      {"type": "choice", "instructions": "About the contactInfo value only: what kind of contact detail is it?",
+                            "criteria": {"PHONE": "a phone number", "EMAIL": "an email address", "OTHER": "something else", "NONE": "not a contact detail"}},
+      "specialty_is_real": {"type": "noul",   "instructions": "About the specialty value only: probability that it is a recognised medical specialty."}
+    }'`;
+const perColumnSql = (title, srcCte) => `${title}
+WITH src AS (
+${srcCte}
+),
+asked AS (                        -- 2. ASK: the row goes in once. Four questions, each about its own column.
+  SELECT *, json_transform(
+    jev_ask({'name': name, 'dateOfBirth': dateOfBirth, 'contactInfo': contactInfo, 'specialty': specialty},
+    ${QUESTIONS_PER_COLUMN}),
+    '{"name_is_real":"DOUBLE","dob_is_plausible":"DOUBLE","contact_kind":"VARCHAR","contact_kind_conf":"DOUBLE","specialty_is_real":"DOUBLE"}'
+  ) AS a
+  FROM src
+)
+SELECT name, dateOfBirth, contactInfo, specialty,      -- 3. THE RESULT: your 4 columns, then one answer per column
+       a.name_is_real      AS jev_name_is_real,        -- 0 to 1: is name a real full name?
+       a.dob_is_plausible  AS jev_dob_is_plausible,    -- 0 to 1: is dateOfBirth a plausible date of birth?
+       a.contact_kind      AS jev_contact_kind,        -- phone, email, other or none
+       a.contact_kind_conf AS jev_contact_kind_conf,   -- how sure of that pick
+       a.specialty_is_real AS jev_specialty_is_real    -- 0 to 1: is specialty a recognised medical specialty?
+FROM asked;`;
+// 1. The default: one question per column, on ten real rows.
+const DEFAULT_SQL = perColumnSql(
+  `-- One call per row. Each question is about ONE column and says so. The answers come back as jev_* columns.`,
+  `  -- 1. YOUR DATA: four columns of a clinician list (Claimwise, synthetic)\n  SELECT name, dateOfBirth, contactInfo, specialty\n  FROM '${USERS}'\n  LIMIT 10`);
+// 2. The same query with four rows that each have one deliberately broken value.
+const BROKEN_SQL = perColumnSql(
+  `-- The same query, with four extra rows that each have ONE deliberately broken value. Watch only the matching jev_ column drop.\n-- (row 4: a number as the name. row 5: an impossible date. row 6: text instead of a phone. row 7: a nonsense specialty.)`,
+  `  -- 1. YOUR DATA: 3 real rows, then 4 test rows\n  (SELECT name, dateOfBirth::VARCHAR AS dateOfBirth, contactInfo, specialty FROM '${USERS}' LIMIT 3)\n  UNION ALL\n  (SELECT * FROM (VALUES\n    ('48213',       '1984-06-17', '(794)507-8161x849', 'Cardiology'),\n    ('Maria Gomez', '2031-02-30', '(794)507-8161',     'Cardiology'),\n    ('Maria Gomez', '1984-06-17', 'call me later',     'Cardiology'),\n    ('Maria Gomez', '1984-06-17', '(794)507-8161',     'Basket Weaving')) t(name, dateOfBirth, contactInfo, specialty))`);
+// 3. Only one column is sent at all.
+const ONE_COLUMN_SQL = `-- Only ONE column is sent: jev_ask({'contactInfo': contactInfo}, ...) passes just that column, with its name. Nothing else leaves.
+WITH src AS (
   SELECT name, dateOfBirth, contactInfo, specialty
   FROM '${USERS}'
   LIMIT 10
 ),
-asked AS (                        -- 2. ASK: one call per row, four questions in each call
+asked AS (
   SELECT *, json_transform(
-    jev_ask(src, '{
-      "is_person": {"type": "noul",   "instructions": "Probability that this row describes a real, identifiable person."},
-      "pii_kind":  {"type": "choice", "instructions": "Which value in this row identifies the person most directly?",
-                    "criteria": {"NAME": "the name", "DATE_OF_BIRTH": "the date of birth", "CONTACT": "the phone number or email", "NONE": "nothing here identifies a person"}},
-      "gdpr":      {"type": "noul",   "instructions": "Probability that GDPR applies to storing this row, if the person may live in the EU."},
-      "hipaa":     {"type": "noul",   "instructions": "Probability that HIPAA applies to storing this row, if a US healthcare provider holds it."}
+    jev_ask({'contactInfo': contactInfo}, '{
+      "is_personal":  {"type": "noul",   "instructions": "Probability that this value is personal contact data about an individual."},
+      "contact_kind": {"type": "choice", "instructions": "What kind of contact detail is this value?",
+                       "criteria": {"PHONE": "a phone number", "EMAIL": "an email address", "OTHER": "something else", "NONE": "not a contact detail"}},
+      "looks_valid":  {"type": "noul",   "instructions": "Probability that this is a complete, correctly formed contact detail."},
+      "gdpr":         {"type": "noul",   "instructions": "Probability that GDPR applies to storing this value, if the person may live in the EU."}
     }'),
-    '{"is_person":"DOUBLE","pii_kind":"VARCHAR","pii_kind_conf":"DOUBLE","gdpr":"DOUBLE","hipaa":"DOUBLE"}'
+    '{"is_personal":"DOUBLE","contact_kind":"VARCHAR","contact_kind_conf":"DOUBLE","looks_valid":"DOUBLE","gdpr":"DOUBLE"}'
   ) AS a
   FROM src
 )
-SELECT name, dateOfBirth, contactInfo, specialty,      -- 3. THE RESULT: your 4 columns, then Jev's answers
-       a.is_person     AS jev_is_person,       -- 0 to 1: is this a real person?
-       a.pii_kind      AS jev_pii_kind,        -- which value identifies them most
-       a.pii_kind_conf AS jev_pii_kind_conf,   -- how sure of that pick
-       a.gdpr          AS jev_gdpr,            -- 0 to 1: does GDPR apply?
-       a.hipaa         AS jev_hipaa            -- 0 to 1: does HIPAA apply?
+SELECT name, dateOfBirth, contactInfo, specialty,
+       a.is_personal       AS jev_contact_is_personal,
+       a.contact_kind      AS jev_contact_kind,
+       a.contact_kind_conf AS jev_contact_kind_conf,
+       a.looks_valid       AS jev_contact_valid,
+       a.gdpr              AS jev_contact_gdpr
 FROM asked;`;
 const EXAMPLES = {
-  '1 · Several questions per row (default)': DEFAULT_SQL,
-  '2 · The built-in PII questions: jev_pii_row': `-- the built-in question set (personal data, category, six regimes) as 11 extra columns\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${USERS}' LIMIT 10) t;`,
-  '3 · Raw to silver on a Hugging Face file': `-- RAW to SILVER. The original columns stay as they are; every Jev answer is a NEW column prefixed jev_.\nCREATE OR REPLACE TABLE silver_pii_check AS\nWITH raw AS (                       -- 1. RAW: 3 of the file's 5 columns, untouched\n  SELECT column_name, records, output AS source_label\n  FROM '${HF}'\n  LIMIT 10\n),\nasked AS (                          -- 2. ASK: send one column (records, with column_name as context) to Jev\n  SELECT *, jev_pii_row({'column_name': column_name, 'sample_values': records}) AS jev\n  FROM raw\n),\ndecided AS (                        -- 3. DECIDE: the answers become aliased columns, plus the rule's action\n  SELECT column_name, records, source_label,\n         jev.sensitive      AS jev_sensitive,       -- 0 to 1: does it hold personal data?\n         jev.category       AS jev_category,        -- which kind, from a fixed list\n         jev.category_conf  AS jev_category_conf,   -- how sure of that pick\n         jev.regime_gdpr    AS jev_gdpr,            -- 0 to 1: does GDPR apply?\n         jev.regime_hipaa   AS jev_hipaa,           -- 0 to 1: does HIPAA apply?\n         policy_action(jev.category, jev.sensitive) AS jev_action   -- keep, mask, hash, drop or review (see example 4)\n  FROM asked\n)\nSELECT *,                           -- 4. SILVER: apply the action to the value\n       CASE jev_action WHEN 'keep' THEN records\n                       WHEN 'hash' THEN md5(records)\n                       WHEN 'mask' THEN '***'\n                       ELSE NULL    -- drop or review: the value is not loaded\n       END AS records_silver\nFROM decided;\n\nSELECT * FROM silver_pii_check;`,
-  '4 · The rule behind jev_action': `-- policy_action(category, score) is NOT an AI answer. It is a fixed rule in code:\n--   score below 0.5 and category NONE            -> keep\n--   a confident category, by the table below      -> mask, hash or drop\n--   the score and the category disagree, or Jev failed -> review (a person decides)\n-- This table shows the "by the table below" part. It is a read-only copy: to use a different rule, join your own table.\nSELECT action, string_agg(category, ', ' ORDER BY category) AS categories\nFROM jev_policy GROUP BY action ORDER BY action;`,
-  '5 · Look at the raw Hugging Face file': `-- 5 columns: column_name, records (sample values of another column), output (the dataset's label, None = not PII),\n-- and instruction and input (training prompt text, ignored here).\nSELECT column_name, records, output AS source_label\nFROM '${HF}'\nLIMIT 10;`,
-  '6 · Profile one column from a sample': `-- one column, judged from a sample of its values: a one-row table\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
-  '7 · Catalog: read pii_catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
+  '1 · One question per column (default)': DEFAULT_SQL,
+  '2 · Catch broken values: the same query with 4 bad rows': BROKEN_SQL,
+  '3 · Ask about just one column': ONE_COLUMN_SQL,
+  '4 · The built-in PII questions: jev_pii_row (whole row)': `-- the built-in question set (personal data, category, six regimes) as 11 extra columns\nSELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth, specialty\n      FROM '${USERS}' LIMIT 10) t;`,
+  '5 · Raw to silver on a Hugging Face file': `-- RAW to SILVER. The original columns stay as they are; every Jev answer is a NEW column prefixed jev_.\nCREATE OR REPLACE TABLE silver_pii_check AS\nWITH raw AS (                       -- 1. RAW: 3 of the file's 5 columns, untouched\n  SELECT column_name, records, output AS source_label\n  FROM '${HF}'\n  LIMIT 10\n),\nasked AS (                          -- 2. ASK: send one column (records, with column_name as context) to Jev\n  SELECT *, jev_pii_row({'column_name': column_name, 'sample_values': records}) AS jev\n  FROM raw\n),\ndecided AS (                        -- 3. DECIDE: the answers become aliased columns, plus the rule's action\n  SELECT column_name, records, source_label,\n         jev.sensitive      AS jev_sensitive,       -- 0 to 1: does it hold personal data?\n         jev.category       AS jev_category,        -- which kind, from a fixed list\n         jev.category_conf  AS jev_category_conf,   -- how sure of that pick\n         jev.regime_gdpr    AS jev_gdpr,            -- 0 to 1: does GDPR apply?\n         jev.regime_hipaa   AS jev_hipaa,           -- 0 to 1: does HIPAA apply?\n         policy_action(jev.category, jev.sensitive) AS jev_action   -- keep, mask, hash, drop or review (see example 6)\n  FROM asked\n)\nSELECT *,                           -- 4. SILVER: apply the action to the value\n       CASE jev_action WHEN 'keep' THEN records\n                       WHEN 'hash' THEN md5(records)\n                       WHEN 'mask' THEN '***'\n                       ELSE NULL    -- drop or review: the value is not loaded\n       END AS records_silver\nFROM decided;\n\nSELECT * FROM silver_pii_check;`,
+  '6 · The rule behind jev_action': `-- policy_action(category, score) is NOT an AI answer. It is a fixed rule in code:\n--   score below 0.5 and category NONE            -> keep\n--   a confident category, by the table below      -> mask, hash or drop\n--   the score and the category disagree, or Jev failed -> review (a person decides)\n-- This table shows the "by the table below" part. It is a read-only copy: to use a different rule, join your own table.\nSELECT action, string_agg(category, ', ' ORDER BY category) AS categories\nFROM jev_policy GROUP BY action ORDER BY action;`,
+  '7 · Look at the raw Hugging Face file': `-- 5 columns: column_name, records (sample values of another column), output (the dataset's label, None = not PII),\n-- and instruction and input (training prompt text, ignored here).\nSELECT column_name, records, output AS source_label\nFROM '${HF}'\nLIMIT 10;`,
+  '8 · Profile one column from a sample': `-- one column, judged from a sample of its values: a one-row table\nSELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);`,
+  '9 · Catalog: read pii_catalog': `-- after clicking the scan icon next to a table in the sidebar\nSELECT table_name, column_name, category, round(sensitive, 2) AS sensitive, round(category_conf, 2) AS conf, runner_up, regimes, action\nFROM pii_catalog\nORDER BY table_name, ordinal;`,
 };
 
 // Help: every function, one example each.
 const HELP = [
-  { fn: 'jev_pii_row(t)', what: "Adds Jev's built-in personal-data answers to every row: 11 columns (sensitive, category, category_conf, runner_up, regime_gdpr, ...).",
+  { fn: 'jev_pii_row(t)', what: "Jev's built-in personal-data answers for every row: 11 columns (sensitive, category, category_conf, regime_gdpr, ...). It sends the whole row t. To limit it to one column, pass {'col': col} instead of t.",
     sql: `SELECT t.*, unnest(jev_pii_row(t))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 10) t;` },
-  { fn: 'jev_ask(t, questions)', what: 'Your own questions. Returns JSON; json_transform turns it into named columns. noul = a score 0 to 1. choice = one pick from criteria, plus name_conf.',
-    sql: `SELECT t.*, unnest(json_transform(\n  jev_ask(t, '{"is_adult": {"type": "noul", "instructions": "Probability that this person is an adult."}}'),\n  '{"is_adult": "DOUBLE"}'))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 5) t;` },
+  { fn: 'jev_ask(t, questions)', what: "Your own questions, one call per row. Every column of t is sent. Point a question at one column by naming it: 'About the dateOfBirth value only: ...'. Returns JSON; json_transform names the columns. noul = a score 0 to 1. choice = one pick from criteria, plus name_conf.",
+    sql: `SELECT t.*, unnest(json_transform(\n  jev_ask(t, '{\n    "name_is_real": {"type": "noul", "instructions": "About the name value only: probability that it is a real full name."},\n    "dob_ok": {"type": "noul", "instructions": "About the dateOfBirth value only: probability that it is a plausible date of birth."}\n  }'),\n  '{"name_is_real": "DOUBLE", "dob_ok": "DOUBLE"}'))\nFROM (SELECT name, dateOfBirth FROM '${USERS}' LIMIT 5) t;` },
+  { fn: "jev_ask({'col': col}, questions)", what: 'Send only one column: its name and value go to Jev, nothing else. Write the column in curly braces as {name: value}.',
+    sql: `SELECT t.name, t.contactInfo, unnest(json_transform(\n  jev_ask({'contactInfo': t.contactInfo}, '{"is_phone": {"type": "noul", "instructions": "Probability that this value is a phone number."}}'),\n  '{"is_phone": "DOUBLE"}'))\nFROM (SELECT name, contactInfo FROM '${USERS}' LIMIT 5) t;` },
   { fn: 'jev_pii_table(table, column, samples)', what: 'Judges one column from a list of its values. Returns one row.',
     sql: `SELECT * FROM jev_pii_table('users', 'contactInfo', ['321.581.9600', '(555) 555-0101']);` },
   { fn: 'jev_pii(table, column, samples)', what: 'The same answers as one struct value. r.* spreads it into columns.',
